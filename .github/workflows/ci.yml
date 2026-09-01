@@ -1,0 +1,86 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      db:
+        image: postgres:16
+        env:
+          POSTGRES_DB: eraj_platform
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:7
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DJANGO_SECRET_KEY: ci-secret-not-used-in-any-real-environment-1234567890
+      DB_HOST: localhost
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DB_NAME: eraj_platform
+      REDIS_URL: redis://127.0.0.1:6379/0
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt ruff bandit pip-audit
+
+      - name: Lint (blocking — real errors only)
+        run: ruff check --select F,E9 .
+      - name: Lint (full — informational until baseline is clean)
+        run: ruff check .
+        continue-on-error: true
+      - name: SAST (informational until baseline is clean)
+        run: bandit -q -r apps config
+        continue-on-error: true
+      - name: Dependency audit (informational until triaged)
+        run: pip-audit -r requirements.txt
+        continue-on-error: true
+
+      - run: python config/env_guard.py
+      - run: python manage.py test apps.library.tests.test_tenant_isolation -v 2
+      - run: python -m pytest apps/core/tests/ -q
+      - name: Django deploy checks
+        run: DJANGO_ENV=prod python manage.py check --deploy --fail-level ERROR
+
+  secrets-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        continue-on-error: true
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npx tsc --noEmit
+      - run: npm run build
+      - run: npm audit --audit-level=high
+        continue-on-error: true

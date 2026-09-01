@@ -13,11 +13,19 @@ from pathlib import Path
 
 from decouple import Csv, config
 
+from config.env_guard import INSECURE_SECRET, check_production_safety
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = config("DJANGO_SECRET_KEY", default="dev-insecure-key-change-in-production")
-DEBUG = config("DEBUG", default=False, cast=bool)
-ALLOWED_HOSTS = config("ALLOWED_HOSTS", default="localhost,127.0.0.1", cast=Csv())
+# dev | staging | prod. Drives the DEBUG default and the security lockdown below.
+DJANGO_ENV = config("DJANGO_ENV", default="dev")
+IS_PRODUCTION = DJANGO_ENV in ("staging", "prod")
+
+SECRET_KEY = config("DJANGO_SECRET_KEY", default=INSECURE_SECRET)
+DEBUG = config("DEBUG", default=not IS_PRODUCTION, cast=bool)
+ALLOWED_HOSTS = config("ALLOWED_HOSTS", default="localhost,127.0.0.1,.localhost", cast=Csv())
+
+check_production_safety(is_production=IS_PRODUCTION, debug=DEBUG, secret_key=SECRET_KEY)
 
 # ---------------------------------------------------------------------------
 # django-tenants: this is the load-bearing config for the whole architecture.
@@ -61,6 +69,8 @@ MIDDLEWARE = [
     # connection BEFORE any other middleware or view code touches the DB.
     "django_tenants.middleware.main.TenantMainMiddleware",
     "django.middleware.security.SecurityMiddleware",
+    # Serves collected static files in production without a separate web server.
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -128,7 +138,34 @@ USE_I18N = True
 USE_TZ = True
 
 STATIC_URL = "static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"
+STORAGES = {
+    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    "staticfiles": {"BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"},
+}
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# ---------------------------------------------------------------------------
+# Security. This is what `manage.py check --deploy` asks for. The strict
+# transport settings switch on only in staging/prod so plain-http local dev
+# keeps working.
+# ---------------------------------------------------------------------------
+SECURE_CONTENT_TYPE_NOSNIFF = True
+X_FRAME_OPTIONS = "DENY"
+SESSION_COOKIE_HTTPONLY = True
+CSRF_COOKIE_HTTPONLY = True
+# Comma-separated, e.g. "https://*.eraj.com". Needed once the browser posts to
+# Django directly (Phase 1 auth); harmless empty until then.
+CSRF_TRUSTED_ORIGINS = config("CSRF_TRUSTED_ORIGINS", default="", cast=Csv())
+
+if IS_PRODUCTION:
+    SECURE_SSL_REDIRECT = True
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")  # TLS terminates at the platform router
+    SECURE_HSTS_SECONDS = 31_536_000  # 1 year
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
 
 # ---------------------------------------------------------------------------
 # REST framework / JWT
