@@ -1,4 +1,7 @@
-import { getTenantSlug, fetchFromBackend } from "@/lib/tenant";
+import { redirect } from "next/navigation";
+
+import { getAccessToken } from "@/lib/auth";
+import { fetchFromBackend, getTenantSlug } from "@/lib/tenant";
 
 interface Book {
   id: number;
@@ -11,19 +14,18 @@ interface Book {
 
 export default async function LibraryPage() {
   const tenantSlug = getTenantSlug();
-
   if (!tenantSlug) {
     return <div className="notice notice--no-tenant">No tenant resolved for this request.</div>;
   }
 
-  const result = await fetchFromBackend<Book[]>(tenantSlug, "/api/library/books/");
+  const token = getAccessToken();
+  if (!token) redirect("/login");
 
+  const result = await fetchFromBackend<Book[]>(tenantSlug, "/api/library/books/", token);
+  if (!result.ok && result.status === 401) redirect("/login");
   if (!result.ok) {
-    // 402 and 403 are not bugs — they're the plan/subscription model working
-    // as designed (see apps/core/middleware.py in the backend). Every
-    // module page must handle these two states explicitly instead of
-    // falling through to a generic error, since they're the most common
-    // "error" a real user of this platform will ever see.
+    // 402 / 403 are the plan/subscription model working as designed — show the
+    // specific message rather than a generic error.
     return <div className="notice">{result.error}</div>;
   }
 

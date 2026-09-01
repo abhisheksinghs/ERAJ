@@ -15,8 +15,11 @@ from django_tenants.test.cases import TenantTestCase
 from django_tenants.test.client import TenantClient
 from django_tenants.utils import schema_context, tenant_context
 
+from apps.accounts.models import User
 from apps.core.models import Client, Domain, Module, Plan, PlanModule, Subscription
 from apps.library.models import Book
+
+ISO_PW = "iso-test-pw-9911"
 
 
 class TenantIsolationTest(TenantTestCase):
@@ -55,6 +58,11 @@ class TenantIsolationTest(TenantTestCase):
                     end_date=today + timezone.timedelta(days=365),
                 )
 
+        # API access needs an authenticated per-schema user (auth is per-tenant).
+        for tenant in (cls.tenant, cls.other_tenant):
+            with tenant_context(tenant):
+                User.objects.create_user(email="iso@test.local", password=ISO_PW, role="staff")
+
     @classmethod
     def tearDownClass(cls):
         with schema_context("public"):
@@ -63,6 +71,12 @@ class TenantIsolationTest(TenantTestCase):
 
         cache.clear()
         super().tearDownClass()
+
+    def setUp(self):
+        super().setUp()
+        from django.core.cache import cache
+
+        cache.clear()  # reset the login throttle between tests
 
     def test_book_created_in_one_tenant_is_invisible_in_another(self):
         # Create a book in the primary test tenant's schema.
@@ -104,11 +118,20 @@ class TenantIsolationTest(TenantTestCase):
             Book.objects.create(title="Clean Code", author="Robert C. Martin", isbn="ISBN-SHARED-999")
             self.assertEqual(Book.objects.count(), 1)
 
+    def _token(self, client):
+        resp = client.post(
+            "/api/auth/login/",
+            {"email": "iso@test.local", "password": ISO_PW},
+            content_type="application/json",
+        )
+        self.assertEqual(resp.status_code, 200, resp.content)
+        return resp.json()["access"]
+
     def test_http_request_resolves_correct_tenant_schema(self):
         """
-        End-to-end: an HTTP request to a tenant's domain must be served from
-        that tenant's schema, exercising TenantMainMiddleware exactly as
-        production traffic would (not just direct ORM schema_context calls).
+        End-to-end: an authenticated HTTP request to a tenant's domain must be
+        served from that tenant's schema, exercising TenantMainMiddleware
+        exactly as production traffic would.
         """
         with tenant_context(self.tenant):
             Book.objects.create(title="Tenant A Book", author="A", isbn="ISBN-HTTP-A")
@@ -119,10 +142,12 @@ class TenantIsolationTest(TenantTestCase):
 
         client_a = TenantClient(self.tenant)
         client_b = TenantClient(self.other_tenant)
+        auth_a = {"HTTP_AUTHORIZATION": f"Bearer {self._token(client_a)}"}
+        auth_b = {"HTTP_AUTHORIZATION": f"Bearer {self._token(client_b)}"}
 
-        resp_a = client_a.get("/api/library/books/")
-        resp_b = client_b.get("/api/library/books/")
+        resp_a = client_a.get("/api/library/books/", **auth_a)
+        resp_b = client_b.get("/api/library/books/", **auth_b)
 
-        self.assertEqual(len(resp_a.json()), 1)
-        self.assertEqual(len(resp_b.json()), 2)
-        self.assertEqual(resp_a.json()[0]["isbn"], "ISBN-HTTP-A")
+        self.assertEqual(resp_a.json()["count"], 1)
+        self.assertEqual(resp_b.json()["count"], 2)
+        self.assertEqual(resp_a.json()["results"][0]["isbn"], "ISBN-HTTP-A")

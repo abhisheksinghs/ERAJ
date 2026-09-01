@@ -32,22 +32,22 @@ python manage.py runserver
 ```
 
 Add `abc.localhost` and `xyz.localhost` to your hosts resolution (most OSes
-resolve `*.localhost` to 127.0.0.1 automatically). The API now requires a
-tenant-bound JWT:
+resolve `*.localhost` to 127.0.0.1 automatically). `seed_demo_tenants` creates
+a staff user per tenant — `staff@abc.eraj.test` / `staff@xyz.eraj.test`,
+password `eraj-demo-pass-123`. The API requires a tenant-bound JWT:
 
 ```bash
-# create a user in a tenant schema
-python manage.py shell -c "from django_tenants.utils import schema_context; \
-from apps.accounts.models import User; \
-schema_context('abc').__enter__(); User.objects.create_user('staff@abc.edu','changeme-123',role='staff')"
-
 TOKEN=$(curl -s -X POST http://abc.localhost:8000/api/auth/login/ \
   -H 'Content-Type: application/json' \
-  -d '{"email":"staff@abc.edu","password":"changeme-123"}' | python -c 'import sys,json;print(json.load(sys.stdin)["access"])')
+  -d '{"email":"staff@abc.eraj.test","password":"eraj-demo-pass-123"}' \
+  | python -c 'import sys,json;print(json.load(sys.stdin)["access"])')
 
 curl -H "Authorization: Bearer $TOKEN" http://abc.localhost:8000/api/library/books/
+#   -> {"count": 3, "results": [...]}   (paginated)
 # the same $TOKEN against xyz.localhost -> 401 (schema-bound)
 ```
+
+Full API surface: `http://abc.localhost:8000/api/docs/` (Swagger).
 
 Superadmin (public schema) is the MFA-gated Django admin at
 `/superadmin/` — see `docs/DEPLOY.md` for the first-superadmin bootstrap.

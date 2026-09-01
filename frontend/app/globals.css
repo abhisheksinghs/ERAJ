@@ -96,3 +96,55 @@ th {
   background: #f4f6fb;
   color: var(--navy);
 }
+
+.card {
+  max-width: 360px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.card label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--navy);
+}
+
+.card input {
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 14px;
+}
+
+.card button {
+  align-self: flex-start;
+  padding: 8px 18px;
+  border: 0;
+  border-radius: 6px;
+  background: var(--navy);
+  color: #fff;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.linklike {
+  border: 0;
+  background: none;
+  padding: 0;
+  margin-top: 16px;
+  color: var(--navy);
+  font: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.hint {
+  font-size: 13px;
+  color: #888;
+}
