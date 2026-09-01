@@ -98,13 +98,21 @@ Auth, security headers, Docker/gunicorn, CI, observability, backups and the
 DPDP/runbook docs are in place; `docs/DEPLOY.md` covers the DigitalOcean
 (BLR1) target and `.do/app.yaml`.
 
+## Modules
+
+Library and Hostel are built to full workflow depth — lending (issue / return /
+renew / fines / holds) and residence (allocate / vacate / waitlist /
+maintenance), with row-locked inventory/capacity, pagination + filtering, and
+an OpenAPI schema at `/api/schema/` (`/api/docs/` for Swagger UI). See
+`docs/MODULES.md`.
+
 ## What's next (not built here)
 
 - Superadmin CRUD is via the Django admin at `/superadmin/`; a dedicated
   API/UI is still open.
 - Attendance, HR, Payroll, Fees, Exam, Transport modules — replicate the
   `apps/library` pattern (TENANT_APPS entry + models with no tenant FK,
-  isolation comes from the schema) on the backend, and the
+  service layer for workflows, ViewSet + router) on the backend, and the
   `frontend/app/library` page pattern on the frontend.
 - Billing/payment provider integration.
 - Load + isolation test under a real connection pool (`docs/FAILURE_MODES.md` §2).

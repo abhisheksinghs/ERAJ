@@ -9,6 +9,7 @@ each tenant's own schema (library, hostel, attendance, ...).
 """
 
 from datetime import timedelta
+from decimal import Decimal
 from pathlib import Path
 
 from decouple import Csv, config
@@ -45,6 +46,8 @@ SHARED_APPS = [
     "django_otp.plugins.otp_static",
     "rest_framework",
     "rest_framework_simplejwt.token_blacklist",
+    "django_filters",
+    "drf_spectacular",
 ]
 
 TENANT_APPS = [
@@ -190,7 +193,27 @@ REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
     "DEFAULT_THROTTLE_CLASSES": ("rest_framework.throttling.ScopedRateThrottle",),
     "DEFAULT_THROTTLE_RATES": {"login": config("LOGIN_THROTTLE_RATE", default="5/min")},
+    "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
+    "PAGE_SIZE": config("API_PAGE_SIZE", default=25, cast=int),
+    "DEFAULT_FILTER_BACKENDS": (
+        "django_filters.rest_framework.DjangoFilterBackend",
+        "rest_framework.filters.SearchFilter",
+        "rest_framework.filters.OrderingFilter",
+    ),
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
 }
+
+SPECTACULAR_SETTINGS = {
+    "TITLE": "Eraj API",
+    "VERSION": "1.0.0",
+    "SERVE_INCLUDE_SCHEMA": False,
+}
+
+# --- Library module -------------------------------------------------------
+LIBRARY_LOAN_DAYS = config("LIBRARY_LOAN_DAYS", default=14, cast=int)
+LIBRARY_MAX_RENEWALS = config("LIBRARY_MAX_RENEWALS", default=2, cast=int)
+LIBRARY_FINE_PER_DAY = Decimal(config("LIBRARY_FINE_PER_DAY", default="2.00"))
+LIBRARY_DEFAULT_BORROW_LIMIT = config("LIBRARY_DEFAULT_BORROW_LIMIT", default=5, cast=int)
 
 SIMPLE_JWT = {
     # Short access-token lifetime is a deliberate control: it bounds how

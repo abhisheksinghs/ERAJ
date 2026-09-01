@@ -10,9 +10,11 @@ and 4–7 fully before launch; build Phase 3 to the point where the design is
 locked and the pooler is configured correctly, defer the fan-out tooling
 until schema count crosses ~100; Phase 6 baseline now, formal program later.**
 
-Feature completeness (auth endpoints, remaining modules, billing integration)
-is tracked separately — this document is only about making what exists safe to
-run for money.
+Feature completeness (remaining modules, billing integration) is tracked
+separately — this document is only about making what exists safe to run for
+money. The Library and Hostel modules are now built out to full workflow depth
+(see `docs/MODULES.md`); Attendance/HR/Fees/Exam/Transport still follow that
+pattern.
 
 ---
 
@@ -324,6 +326,7 @@ destinations; commission the external pen test; run the k6 load+isolation test.
 - [x] `apps/library/views.py` — `BookListView` is `AllowAny` — *now `RolePermission`*
 - [x] `apps/hostel/views.py` — `RoomListView` no explicit permission — *now `RolePermission`*
 - [ ] `apps/core/views.py` — empty stub *(no route points at it; delete or fill when a core API is needed)*
+- [x] `library` / `hostel` were one-list stubs — *full CRUD + workflows (lending: issue/return/renew/fines/holds; hostel: allocate/vacate/waitlist/maintenance), row-locked inventory/capacity, pagination + django-filter + drf-spectacular, soft-delete, tests. See `docs/MODULES.md`.*
 - [x] All three `admin.py` — nothing registered; admin on tenant URLconf — *`OTPAdminSite` at `/superadmin/`, public schema only, core models + `AuditLog` registered; admin removed from tenant URLconf*
 - [x] `config/settings.py` — no `SECURE_*` / HSTS / secure-cookie — *added, gated on `DJANGO_ENV`; `config/env_guard.py` fails fast*
 - [ ] `config/settings.py` — `DB_USER` defaults to `postgres` (superuser) — *documented in `DEPLOY.md` step 3; default left for local dev*
