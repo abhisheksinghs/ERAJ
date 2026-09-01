@@ -1,0 +1,60 @@
+# DigitalOcean App Platform spec — Bangalore (BLR1) for DPDP data localization.
+# Create/update:  doctl apps create --spec .do/app.yaml   (or update <id> --spec)
+#
+# Managed Postgres + Redis are attached as DO resources (created separately);
+# their credentials arrive as ${db.*} / ${redis.*}. IMPORTANT: set the Postgres
+# connection pool to SESSION mode — transaction mode breaks django-tenants
+# search_path (docs/FAILURE_MODES.md §2).
+name: eraj
+region: blr
+
+services:
+  - name: web
+    github:
+      repo: abhisheksinghs/ERAJ
+      branch: main
+      deploy_on_push: true
+    dockerfile_path: Dockerfile
+    http_port: 8000
+    instance_size_slug: apps-s-1vcpu-1gb
+    instance_count: 2
+    health_check:
+      http_path: /health/ready
+    envs: &django_env
+      - { key: DJANGO_ENV, value: prod }
+      - { key: DJANGO_SECRET_KEY, type: SECRET }
+      - { key: ALLOWED_HOSTS, value: ".eraj.com,eraj.com" }
+      - { key: CSRF_TRUSTED_ORIGINS, value: "https://*.eraj.com" }
+      - { key: DB_NAME, value: "${db.DATABASE}" }
+      - { key: DB_USER, value: "${db.USERNAME}" }
+      - { key: DB_PASSWORD, value: "${db.PASSWORD}" }
+      - { key: DB_HOST, value: "${db.HOSTNAME}" }
+      - { key: DB_PORT, value: "${db.PORT}" }
+      - { key: REDIS_URL, value: "${redis.DATABASE_URL}" }
+      - { key: SENTRY_DSN, type: SECRET }
+
+workers:
+  - name: celery-worker
+    github: { repo: abhisheksinghs/ERAJ, branch: main }
+    dockerfile_path: Dockerfile
+    instance_size_slug: apps-s-1vcpu-1gb
+    instance_count: 1
+    run_command: celery -A config worker -l info
+    envs: *django_env
+  - name: celery-beat
+    github: { repo: abhisheksinghs/ERAJ, branch: main }
+    dockerfile_path: Dockerfile
+    instance_size_slug: apps-s-1vcpu-0.5gb
+    instance_count: 1 # MUST stay 1 — two schedulers = every periodic task twice
+    run_command: celery -A config beat -l info
+    envs: *django_env
+
+jobs:
+  - name: migrate
+    kind: PRE_DEPLOY
+    github: { repo: abhisheksinghs/ERAJ, branch: main }
+    dockerfile_path: Dockerfile
+    run_command: >-
+      python manage.py migrate_schemas --shared &&
+      python manage.py migrate_schemas --executor=multiprocessing
+    envs: *django_env

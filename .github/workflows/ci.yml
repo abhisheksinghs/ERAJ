@@ -53,7 +53,9 @@ jobs:
         continue-on-error: true
 
       - run: python config/env_guard.py
-      - run: python manage.py test apps.library.tests.test_tenant_isolation -v 2
+      - name: Migrations are in sync with models
+        run: python manage.py makemigrations --check --dry-run
+      - run: python manage.py test apps.library.tests.test_tenant_isolation apps.accounts.tests.test_auth_isolation -v 2
       - run: python -m pytest apps/core/tests/ -q
       - name: Django deploy checks
         run: DJANGO_ENV=prod python manage.py check --deploy --fail-level ERROR

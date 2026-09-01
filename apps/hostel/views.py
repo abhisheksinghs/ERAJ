@@ -1,5 +1,6 @@
 from rest_framework import generics, serializers
 
+from apps.accounts.permissions import RolePermission
 from apps.hostel.models import Room
 
 
@@ -12,3 +13,4 @@ class RoomSerializer(serializers.ModelSerializer):
 class RoomListView(generics.ListCreateAPIView):
     queryset = Room.objects.all()
     serializer_class = RoomSerializer
+    permission_classes = [RolePermission]

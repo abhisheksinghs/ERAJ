@@ -64,9 +64,12 @@ def get_subscription_state(client: Client) -> dict:
     except Subscription.DoesNotExist:
         state = {"status": Subscription.Status.SUSPENDED, "modules": []}
     else:
+        # granted_modules() is empty unless access is currently allowed, so an
+        # unauthorized tenant has zero modules even if the 402 branch below is
+        # ever refactored — the safe result is the default result.
         state = {
             "status": subscription.status,
-            "modules": sorted(subscription.active_modules()),
+            "modules": sorted(subscription.granted_modules()),
         }
     cache.set(key, state, timeout=settings.MODULE_PERMISSION_CACHE_TTL)
     return state

@@ -43,15 +43,16 @@ Config: `pytest.ini` points `DJANGO_SETTINGS_MODULE` at
 | Middleware: block/allow by status and module | `pytest` | `apps/core/tests/test_middleware.py` |
 | Cache invalidation on downgrade | `pytest` | `apps/core/tests/test_middleware.py`, `test_tasks.py` |
 | Daily subscription recompute task | `pytest` | `apps/core/tests/test_tasks.py` |
+| JWT is tenant-bound; roles enforced | `manage.py test` | `apps/accounts/tests/test_auth_isolation.py` |
 
 ## Deliberately not covered yet
 
 - pgbouncer / connection-pooling behavior under concurrent load (see
   `docs/FAILURE_MODES.md` §2) — needs a load-testing setup, not a unit test.
 - Migration partial-failure handling across many schemas.
-- Frontend (Next.js) subdomain-routing middleware — no frontend code exists
-  in this skeleton yet.
+- Frontend (Next.js) — `tsc` + `next build` run in CI; no component/e2e tests.
 - Superadmin cross-tenant reporting views — not built yet.
+- TOTP enrollment / verification flow (django-otp) — admin-only, manual smoke.
 
 ## Running everything
 

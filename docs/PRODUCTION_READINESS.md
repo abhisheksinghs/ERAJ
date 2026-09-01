@@ -302,41 +302,54 @@ inherits `IsAuthenticated` (so it 401s forever). No user model beyond stock
 
 ## Sequencing
 
-| Order | Phases | Gate |
-|---|---|---|
-| 1 ✅ *(landed)* | Decision 0, Phase 2 (settings), Phase 4.1–4.2, 4.6 (CI) | `check --deploy` clean, deploys to staging |
-| 2 | Phase 1 (auth/authz/MFA) | negative auth tests green |
-| 3 | Phase 3.1–3.2, 3.5 (pool mode, DB roles, state-machine fixes) | isolation test under a real pool green |
-| 4 | Phase 4.3–4.5, Phase 5 (obs, backups, runbook) | first restore drill done, alerts firing |
-| 5 | Phase 6 baseline, Phase 7 (verification, pen test) | pen-test findings closed |
-| later | Phase 3.3–3.4 fan-out tooling, WAF, k8s/ECS, formal compliance | when schema count / scale / a customer contract forces it |
+| Order | Phases | Gate | Status |
+|---|---|---|---|
+| 1 | Decision 0, Phase 2 (settings), Phase 4.1–4.2, 4.6 (CI) | `check --deploy` clean, deploys to staging | ✅ code landed, CI to confirm |
+| 2 | Phase 1 (auth/authz/MFA) | negative auth tests green | ✅ code landed, needs a CI run (migrations) |
+| 3 | Phase 3.1–3.2, 3.5 (pool mode, DB roles, state-machine fixes) | isolation test under a real pool | 🟡 state-machine + `granted_modules()` done; pool mode = ops (`.do/app.yaml` + DEPLOY.md); real-pool test still owed |
+| 4 | Phase 4.3–4.5, Phase 5 (obs, backups, runbook) | first restore drill done, alerts firing | ✅ code + docs landed (`/health/ready`, celery hardening, JSON logs, Sentry, AuditLog, BACKUP_RESTORE.md, INCIDENT_RUNBOOK.md); drill + alert wiring are ops |
+| 5 | Phase 6 baseline, Phase 7 (verification, pen test) | pen-test findings closed | 🟡 DPDP.md + `test_auth_isolation.py` landed; ZAP/pen-test/load-test are execution |
+| later | Phase 3.3–3.4 fan-out tooling, WAF, k8s/ECS, formal compliance | when schema count / scale / a customer contract forces it | deferred by design |
+
+**What only you can do** (not code): create the DO Postgres/Redis in BLR1 and
+set the pool to `session` mode; run `.do/app.yaml`; set secrets; first
+`createsuperuser` + TOTP enrol; the monthly restore drill; wire alert
+destinations; commission the external pen test; run the k6 load+isolation test.
 
 ---
 
 ## Concrete code gaps in the repo today (checklist)
 
-- [ ] No auth endpoints; no custom user model (`AUTH_USER_MODEL` still stock)
-- [ ] `apps/library/views.py` — `BookListView` is `AllowAny`
-- [ ] `apps/hostel/views.py` — `RoomListView` has no explicit `permission_classes`, 401s forever with no auth flow
-- [ ] `apps/core/views.py` — empty stub
-- [ ] All three `admin.py` — nothing registered; admin exposed on tenant URLconf
-- [x] `config/settings.py` — no `SECURE_*` / HSTS / secure-cookie settings — *added, gated on `DJANGO_ENV`; `config/env_guard.py` fails fast on unsafe prod config*
-- [ ] `config/settings.py` — `DB_USER` defaults to `postgres` (superuser)
-- [ ] `apps/core/models.py` — `recompute_status()` never returns `TERMINATED`; `active_modules()` ignores status
-- [ ] `config/celery.py` — no time limits, acks-late, result expiry; beat singleton not enforced
-- [x] `Dockerfile` — root user, `gcc` in final image, no `collectstatic`, no `.dockerignore` — *multi-stage, non-root, `collectstatic` at build, `gunicorn` CMD; `.dockerignore` added*
-- [x] `docker-compose.yml` — `runserver` in prod path — *prod now runs the Dockerfile `gunicorn` CMD (DO App Platform); compose is dev/staging-only. Bind-mount + dev password left as-is for local dev.*
-- [x] No CI, no dependency/secret/SAST scanning — *`.github/workflows/ci.yml`: tests + `check --deploy` + `tsc`/`build` block; ruff-full/bandit/pip-audit/gitleaks/npm-audit informational until the baseline is triaged*
-- [ ] `attendance` referenced in middleware + seed data but the app does not exist
-- [ ] `docs/FAILURE_MODES.md` / `docs/TESTING.md` — stale, claim "no frontend exists"
-- [ ] `FAILURE_MODES.md §2` (search_path + pooling) — tested at ORM level only, never under a real connection pool
+- [x] No auth endpoints; no custom user model — *`apps/accounts`: custom `User` (email login, `role`), per-schema (`auth`+`accounts` in `TENANT_APPS`), SimpleJWT login/refresh/logout/me, blacklist on rotation*
+- [x] `apps/library/views.py` — `BookListView` is `AllowAny` — *now `RolePermission`*
+- [x] `apps/hostel/views.py` — `RoomListView` no explicit permission — *now `RolePermission`*
+- [ ] `apps/core/views.py` — empty stub *(no route points at it; delete or fill when a core API is needed)*
+- [x] All three `admin.py` — nothing registered; admin on tenant URLconf — *`OTPAdminSite` at `/superadmin/`, public schema only, core models + `AuditLog` registered; admin removed from tenant URLconf*
+- [x] `config/settings.py` — no `SECURE_*` / HSTS / secure-cookie — *added, gated on `DJANGO_ENV`; `config/env_guard.py` fails fast*
+- [ ] `config/settings.py` — `DB_USER` defaults to `postgres` (superuser) — *documented in `DEPLOY.md` step 3; default left for local dev*
+- [x] `apps/core/models.py` — `recompute_status()` / status-blind modules — *TERMINATED now preserved; `granted_modules()` added and middleware routed through it*
+- [x] `config/celery.py` — no time limits / acks-late / result expiry — *all set; beat-singleton documented in `DEPLOY.md`*
+- [x] `Dockerfile` — root, `gcc`, no `collectstatic`, no `.dockerignore` — *multi-stage, non-root, `collectstatic` at build, `gunicorn` CMD; `.dockerignore` added*
+- [x] `docker-compose.yml` — `runserver` in prod path — *prod runs the Dockerfile `gunicorn` CMD on DO App Platform; compose is dev-only*
+- [x] No CI / scanning — *`.github/workflows/ci.yml`: tests + `check --deploy` + `makemigrations --check` + `tsc`/`build` block; scanners informational until baseline triaged*
+- [ ] `attendance` referenced in middleware + seed but no app — *feature work, out of scope for this plan*
+- [x] `docs/FAILURE_MODES.md` / `docs/TESTING.md` — stale — *updated*
+- [ ] `FAILURE_MODES.md §2` (search_path + pooling) — still needs a test under a real connection pool (Phase 7 load test)
 
-### Block 1 — files touched
-`config/env_guard.py` (new), `config/settings.py`, `requirements.txt` (+gunicorn, +whitenoise),
-`Dockerfile`, `.dockerignore` (new), `.env.example`, `.github/workflows/ci.yml` (new),
-`frontend/next.config.js` (security headers).
+### Files added/changed across all blocks
 
-**Not verifiable in the authoring environment** (no venv / Django 5 / Postgres): the full
-`manage.py check --deploy` run and both test suites. `python config/env_guard.py` self-check
-passes; settings + CI YAML parse-check clean. Run CI or a local `pip install -r requirements.txt`
-to confirm.
+**Block 1:** `config/env_guard.py`, `config/settings.py`, `requirements.txt`, `Dockerfile`,
+`.dockerignore`, `.env.example`, `.github/workflows/ci.yml`, `frontend/next.config.js`.
+
+**Blocks 2–5:** `apps/accounts/*` (new app + hand-written `0001_initial`),
+`apps/core/{models,middleware,audit,admin,apps}.py`, `apps/core/migrations/0002_auditlog.py`,
+`config/{admin,health,logfmt,urls,urls_public,celery,settings}.py`,
+`apps/{library,hostel}/views.py`, `apps/core/tests/test_subscription_state_machine.py`,
+`apps/accounts/tests/test_auth_isolation.py`, `requirements.txt`, `.do/app.yaml`,
+`docs/{DEPLOY,BACKUP_RESTORE,INCIDENT_RUNBOOK,DPDP}.md`, `docs/{FAILURE_MODES,TESTING}.md`.
+
+**Not verifiable in the authoring environment** (no venv / Django 5 / Postgres): migrations,
+test suites, `check --deploy`, the Docker build, the admin site. Verified here: every `.py`
+AST-parses, `config/env_guard.py` self-check passes, CI + `.do/app.yaml` YAML parse. The
+hand-written `apps/accounts/migrations/0001_initial.py` is the highest-risk artifact — CI's
+`makemigrations --check` will flag any drift; regenerate with `makemigrations accounts` if so.

@@ -32,18 +32,26 @@ check_production_safety(is_production=IS_PRODUCTION, debug=DEBUG, secret_key=SEC
 # ---------------------------------------------------------------------------
 SHARED_APPS = [
     "django_tenants",  # must be first
-    "apps.core",  # Client (tenant), Domain, Plan, Module, Subscription live here
+    "apps.core",  # Client (tenant), Domain, Plan, Module, Subscription, AuditLog
     "django.contrib.contenttypes",
     "django.contrib.auth",
+    "apps.accounts",  # custom User — public-schema rows are superadmins
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "django.contrib.admin",
+    "django_otp",
+    "django_otp.plugins.otp_totp",
+    "django_otp.plugins.otp_static",
     "rest_framework",
+    "rest_framework_simplejwt.token_blacklist",
 ]
 
 TENANT_APPS = [
     "django.contrib.contenttypes",
+    "django.contrib.auth",  # per-schema users: each tenant has its own accounts_user
+    "apps.accounts",
+    "rest_framework_simplejwt.token_blacklist",
     "apps.library",
     "apps.hostel",
 ]
@@ -75,6 +83,8 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    # Wraps request.user so admin can require a verified TOTP device.
+    "django_otp.middleware.OTPMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     # Subscription + module-permission gate. Runs AFTER tenant resolution
@@ -125,9 +135,11 @@ DATABASES = {
     }
 }
 
+AUTH_USER_MODEL = "accounts.User"
+
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
-    {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
+    {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator", "OPTIONS": {"min_length": 10}},
     {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
@@ -171,10 +183,13 @@ if IS_PRODUCTION:
 # REST framework / JWT
 # ---------------------------------------------------------------------------
 REST_FRAMEWORK = {
+    # Tenant-bound: rejects a token whose `schema` claim != the resolved tenant.
     "DEFAULT_AUTHENTICATION_CLASSES": (
-        "rest_framework_simplejwt.authentication.JWTAuthentication",
+        "apps.accounts.authentication.TenantBoundJWTAuthentication",
     ),
     "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
+    "DEFAULT_THROTTLE_CLASSES": ("rest_framework.throttling.ScopedRateThrottle",),
+    "DEFAULT_THROTTLE_RATES": {"login": config("LOGIN_THROTTLE_RATE", default="5/min")},
 }
 
 SIMPLE_JWT = {
@@ -185,6 +200,7 @@ SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=15),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
     "ROTATE_REFRESH_TOKENS": True,
+    "BLACKLIST_AFTER_ROTATION": True,
 }
 
 # ---------------------------------------------------------------------------
@@ -210,3 +226,42 @@ CELERY_RESULT_BACKEND = config("REDIS_URL", default="redis://127.0.0.1:6379/0")
 CELERY_TASK_SERIALIZER = "json"
 CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TIMEZONE = TIME_ZONE
+
+# ---------------------------------------------------------------------------
+# Logging — JSON to stdout in prod (the platform ships stdout to a log drain),
+# every line tagged with the tenant schema. No PII in log messages.
+# ---------------------------------------------------------------------------
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "filters": {"schema": {"()": "config.logfmt.SchemaFilter"}},
+    "formatters": {
+        "json": {"()": "config.logfmt.JsonFormatter"},
+        "plain": {"format": "%(levelname)s %(name)s [%(schema)s] %(message)s"},
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "filters": ["schema"],
+            "formatter": "json" if IS_PRODUCTION else "plain",
+        },
+    },
+    "root": {"handlers": ["console"], "level": "INFO"},
+    "loggers": {
+        "django": {"handlers": ["console"], "level": "INFO", "propagate": False},
+    },
+}
+
+# ---------------------------------------------------------------------------
+# Error tracking (Sentry) — opt-in via SENTRY_DSN. PII is not sent.
+# ---------------------------------------------------------------------------
+SENTRY_DSN = config("SENTRY_DSN", default="")
+if SENTRY_DSN:
+    import sentry_sdk
+
+    sentry_sdk.init(
+        dsn=SENTRY_DSN,
+        environment=DJANGO_ENV,
+        send_default_pii=False,
+        traces_sample_rate=config("SENTRY_TRACES_SAMPLE_RATE", default=0.0, cast=float),
+    )

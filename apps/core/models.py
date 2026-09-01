@@ -126,12 +126,26 @@ class Subscription(models.Model):
         """The one place that decides "does this tenant get in at all"."""
         return self.status in (self.Status.ACTIVE, self.Status.GRACE_PERIOD)
 
+    def granted_modules(self) -> set[str]:
+        """Module codes this tenant may use *right now* — empty unless access
+        is currently allowed. This is the method the middleware and permission
+        layer must call; `active_modules()` answers the narrower "what's in the
+        plan" question and says nothing about whether they can use it.
+        """
+        return self.active_modules() if self.is_access_allowed() else set()
+
     def recompute_status(self, *, today=None) -> str:
         """
         Deterministic transition function, called by the daily Celery beat
         task (see apps/core/tasks.py) and by tests. Kept pure (no DB writes)
         so it's trivially unit-testable without touching the database.
+
+        TERMINATED is a manual, contractual action (a superadmin ends the
+        contract) — this time-based function never auto-enters it and never
+        auto-exits it.
         """
+        if self.status == self.Status.TERMINATED:
+            return self.Status.TERMINATED
         today = today or timezone.localdate()
         if today <= self.end_date:
             return self.Status.ACTIVE
@@ -142,3 +156,24 @@ class Subscription(models.Model):
 
     def __str__(self) -> str:
         return f"{self.client.name} — {self.plan.name} ({self.status})"
+
+
+class AuditLog(models.Model):
+    """
+    Append-only trail of security-relevant events, in the public schema so a
+    single query spans every tenant. Written by signals (see apps/core/audit.py)
+    and superadmin actions — never updated or deleted (no admin/API surface for
+    that; enforce with a DB grant in production, Phase 3).
+    """
+
+    at = models.DateTimeField(auto_now_add=True, db_index=True)
+    schema_name = models.CharField(max_length=63, db_index=True)
+    actor = models.CharField(max_length=255, blank=True)  # email, or "system"
+    action = models.CharField(max_length=100, db_index=True)  # "auth.login", "subscription.status_changed", ...
+    detail = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        ordering = ("-at",)
+
+    def __str__(self) -> str:
+        return f"{self.at:%Y-%m-%d %H:%M} {self.schema_name} {self.action}"

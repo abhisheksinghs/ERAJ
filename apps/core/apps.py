@@ -7,4 +7,5 @@ class CoreConfig(AppConfig):
     label = "core"
 
     def ready(self):
+        import apps.core.audit  # noqa: F401
         import apps.core.signals  # noqa: F401

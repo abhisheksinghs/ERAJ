@@ -70,6 +70,25 @@ class TestSubscriptionStateMachine:
         sub = self._sub(client_obj, plan, end_date, grace_days=0)
         assert sub.recompute_status(today=end_date + datetime.timedelta(days=1)) == Subscription.Status.SUSPENDED
 
+    def test_terminated_is_never_auto_changed(self, client_obj, plan):
+        """TERMINATED is a manual contractual action — the time-based function
+        must not move a terminated subscription back to active/grace/suspended
+        even if today is well within the paid period."""
+        sub = self._sub(client_obj, plan, datetime.date(2026, 12, 31))
+        sub.status = Subscription.Status.TERMINATED
+        assert sub.recompute_status(today=datetime.date(2026, 1, 1)) == Subscription.Status.TERMINATED
+
+    def test_granted_modules_empty_unless_access_allowed(self, client_obj, plan):
+        library = Module.objects.create(code="library", name="Library")
+        PlanModule.objects.create(plan=plan, module=library)
+        sub = self._sub(client_obj, plan, datetime.date(2026, 12, 31))
+        sub.save()
+
+        sub.status = Subscription.Status.ACTIVE
+        assert sub.granted_modules() == {"library"}
+        sub.status = Subscription.Status.SUSPENDED
+        assert sub.granted_modules() == set()
+
     def test_is_access_allowed_true_for_active_and_grace(self, client_obj, plan):
         sub = self._sub(client_obj, plan, datetime.date(2026, 12, 31))
         sub.status = Subscription.Status.ACTIVE

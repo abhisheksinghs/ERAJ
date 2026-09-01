@@ -20,25 +20,39 @@ Framework + `djangorestframework-simplejwt` + Celery + Redis. Frontend
 ```bash
 python3 -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
-cp .env.example .env   # then edit DB/Redis credentials if needed
+cp .env.example .env   # DJANGO_ENV=dev by default; edit DB/Redis creds if needed
 
 # Postgres + Redis must be running and reachable per .env.
 # Fastest way: docker compose up -d db redis
 
-python manage.py migrate_schemas --shared   # public schema: core, auth, admin
-python manage.py seed_demo_tenants          # creates 'abc' and 'xyz' tenant schemas + subscriptions
+python manage.py migrate_schemas --shared   # public schema: core, auth, accounts, admin
+python manage.py migrate_schemas            # tenant schemas: auth, accounts, library, hostel
+python manage.py seed_demo_tenants          # 'abc' and 'xyz' tenant schemas + subscriptions
 python manage.py runserver
 ```
 
 Add `abc.localhost` and `xyz.localhost` to your hosts resolution (most OSes
-resolve `*.localhost` to 127.0.0.1 automatically). Then:
+resolve `*.localhost` to 127.0.0.1 automatically). The API now requires a
+tenant-bound JWT:
 
 ```bash
-curl http://abc.localhost:8000/api/library/books/
-curl http://xyz.localhost:8000/api/library/books/
+# create a user in a tenant schema
+python manage.py shell -c "from django_tenants.utils import schema_context; \
+from apps.accounts.models import User; \
+schema_context('abc').__enter__(); User.objects.create_user('staff@abc.edu','changeme-123',role='staff')"
+
+TOKEN=$(curl -s -X POST http://abc.localhost:8000/api/auth/login/ \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"staff@abc.edu","password":"changeme-123"}' | python -c 'import sys,json;print(json.load(sys.stdin)["access"])')
+
+curl -H "Authorization: Bearer $TOKEN" http://abc.localhost:8000/api/library/books/
+# the same $TOKEN against xyz.localhost -> 401 (schema-bound)
 ```
 
-Each hits a genuinely separate Postgres schema.
+Superadmin (public schema) is the MFA-gated Django admin at
+`/superadmin/` — see `docs/DEPLOY.md` for the first-superadmin bootstrap.
+
+Each request hits a genuinely separate Postgres schema.
 
 ## Docker
 
@@ -77,14 +91,20 @@ subdomain via middleware and renders real data from the Library and
 Hostel modules, including the 402 (subscription inactive) / 403 (module
 not licensed) states from the backend's access-control model.
 
+## Production
+
+`docs/PRODUCTION_READINESS.md` is the plan (7 phases) and its status.
+Auth, security headers, Docker/gunicorn, CI, observability, backups and the
+DPDP/runbook docs are in place; `docs/DEPLOY.md` covers the DigitalOcean
+(BLR1) target and `.do/app.yaml`.
+
 ## What's next (not built here)
 
-- Superadmin panel (client/plan/subscription CRUD UI) — the data model
-  exists (`Client`, `Plan`, `Module`, `PlanModule`, `Subscription`); only
-  the UI/API views are missing.
+- Superadmin CRUD is via the Django admin at `/superadmin/`; a dedicated
+  API/UI is still open.
 - Attendance, HR, Payroll, Fees, Exam, Transport modules — replicate the
   `apps/library` pattern (TENANT_APPS entry + models with no tenant FK,
   isolation comes from the schema) on the backend, and the
   `frontend/app/library` page pattern on the frontend.
 - Billing/payment provider integration.
-- pgbouncer load-testing (see `docs/FAILURE_MODES.md` §2).
+- Load + isolation test under a real connection pool (`docs/FAILURE_MODES.md` §2).

@@ -77,14 +77,19 @@ invalidation rules.
 | Partial migration across schemas | `migrate_schemas` is NOT wrapped in cross-schema rollback here — if it fails on tenant N of M, tenants 1..N-1 are on the new schema and N+1..M are not. **Not solved in this skeleton** — needs a CI/CD step that monitors `migrate_schemas` exit codes per-tenant and alerts on partial failure. Treat as a known gap, not a false sense of safety. |
 | New TENANT_APPS model added without backfill plan | Sequence migrations before module-permission rollout: run `migrate_schemas` first, only then flip the `PlanModule`/`Module` toggle. Not automated here. |
 
-## 7. Frontend (Next.js) — not built in this skeleton
+## 7. Frontend (Next.js) — built; two open risks
 
-Documented for the next phase: subdomain-parsing middleware needs an
-explicit fallback for `localhost`/preview-deployment hosts that don't have
-a parseable subdomain, and cached tenant/module state in React
-Query/SWR needs a short stale time or explicit invalidation on
-subscription-changed events — otherwise a client can see UI for a module
-they just lost access to and get a 403 on click.
+`frontend/` exists: `middleware.ts` resolves the tenant from the subdomain
+(with an explicit `ROOT_HOSTS` fallback for `localhost`/apex), and the module
+pages render real backend data and the 402/403 states.
+
+Open:
+- The pages use `cache: "no-store"` (always fresh) — correct but no caching
+  strategy. When one is added, tenant/module state needs a short stale time or
+  explicit invalidation on subscription-changed events, or a client sees UI for
+  a module they just lost and gets a 403 on click.
+- Auth tokens must live in `httpOnly` cookies set by a Next route handler, not
+  `localStorage` — tracked in `docs/PRODUCTION_READINESS.md` Phase 1.8.
 
 ## Priority order (unchanged from the pre-build review, now with evidence)
 

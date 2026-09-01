@@ -1,16 +1,16 @@
-"""Tenant-schema URLconf (library.eraj.com, hostel.eraj.com, ...)."""
-from django.contrib import admin
-from django.http import JsonResponse
+"""Tenant-schema URLconf (abc.eraj.com, xyz.eraj.com, ...).
+
+No Django admin here — tenant staff use the API. The admin is public-schema
+only (config/urls_public.py), behind MFA.
+"""
 from django.urls import include, path
 
-
-def health(request):
-    return JsonResponse({"status": "ok"})
-
+from config.health import live, ready
 
 urlpatterns = [
-    path("health", health),
-    path("admin/", admin.site.urls),
+    path("health", live),
+    path("health/ready", ready),
+    path("api/auth/", include("apps.accounts.urls")),
     path("api/library/", include("apps.library.urls")),
     path("api/hostel/", include("apps.hostel.urls")),
 ]
