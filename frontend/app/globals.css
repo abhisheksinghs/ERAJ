@@ -1,0 +1,98 @@
+:root {
+  --navy: #1e2761;
+  --ice: #cadcfc;
+  --slate: #444;
+  --border: #e2e5ec;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: var(--slate);
+  background: #fafbfd;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 24px;
+  background: var(--navy);
+  color: white;
+}
+
+.brand {
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+
+.tenant-badge {
+  font-family: monospace;
+  font-size: 13px;
+  background: rgba(255, 255, 255, 0.12);
+  padding: 2px 10px;
+  border-radius: 999px;
+}
+
+.tenant-badge--none {
+  opacity: 0.7;
+}
+
+.content {
+  padding: 32px 24px;
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+.nav-links {
+  display: flex;
+  gap: 12px;
+  margin: 16px 0 24px;
+}
+
+.nav-links a {
+  padding: 8px 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  text-decoration: none;
+  color: var(--navy);
+  font-weight: 600;
+  font-size: 14px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th,
+td {
+  text-align: left;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  font-size: 14px;
+}
+
+th {
+  color: var(--navy);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.notice {
+  padding: 16px;
+  border-radius: 8px;
+  background: #fbeaea;
+  color: #7a2020;
+  font-size: 14px;
+}
+
+.notice--no-tenant {
+  background: #f4f6fb;
+  color: var(--navy);
+}
