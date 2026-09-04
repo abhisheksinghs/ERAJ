@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 
+import { StatusNotice } from "@/app/_components/StatusNotice";
 import { getAccessToken } from "@/lib/auth";
 import { fetchFromBackend, getTenantSlug } from "@/lib/tenant";
 
@@ -26,7 +27,7 @@ export default async function LibraryPage() {
   if (!result.ok) {
     // 402 / 403 are the plan/subscription model working as designed — show the
     // specific message rather than a generic error.
-    return <div className="notice">{result.error}</div>;
+    return <StatusNotice result={result} />;
   }
 
   const books = result.data;

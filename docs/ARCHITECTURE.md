@@ -23,14 +23,21 @@ if tenant count crosses ~1,000.
 
 ## Request flow
 
+Tenant owns the domain; product is a URL path under it — **not** one domain
+per product. `abc.eraj.com/api/library/...` and `abc.eraj.com/api/hostel/...`
+are the same tenant, same schema, different path prefixes. See
+`docs/REQUIREMENTS_GAP_ANALYSIS.md` "Finding 1" for why this was chosen over
+a product-per-domain model (`library.eraj.com`, `abc.library.eraj.com`, ...).
+
 ```
-Browser → abc.library.eraj.com
+Browser → abc.eraj.com/api/library/books/
   → TenantMainMiddleware (django-tenants)
       resolves Domain -> Client, sets Postgres search_path to `abc`
   → SubscriptionEnforcementMiddleware (apps/core/middleware.py)
       reads cached {status, active_modules} for this tenant (Redis)
       402 if status is suspended/terminated
-      403 if the requested module isn't in the plan
+      403 if the requested path's module isn't in the plan
+        (MODULE_PATH_PREFIXES maps "/api/library" -> "library", etc.)
   → DRF view executes, naturally scoped to the `abc` schema
 ```
 
@@ -73,15 +80,17 @@ invalidates the Redis cache for anything that changed.
 
 ## Frontend (Next.js)
 
-One Next.js app, not one per product. `middleware.ts` reads the subdomain
-from the `Host` header and rewrites to the matching route group
-(`app/(library)/`, `app/(hostel)/`, ...) — mirrors the backend's "one
-codebase, many products" principle on the frontend.
+One Next.js app, not one per product. `middleware.ts` reads the *tenant*
+subdomain from the `Host` header and sets `x-tenant-slug`; each product is a
+plain route under `app/` (`app/library/`, `app/hostel/`, ...), not a
+subdomain-keyed route group. JWT auth via `httpOnly` cookie
+(`frontend/lib/auth.ts`); see `frontend/README.md`.
 
-## What's intentionally out of scope in this skeleton
+## What's intentionally out of scope
 
-- Superadmin UI (only the data model + `PUBLIC_SCHEMA_URLCONF` split exist).
+- Dedicated Super Admin UI beyond the Django admin at `/superadmin/` (MFA-gated,
+  core models registered) — see `docs/REQUIREMENTS_GAP_ANALYSIS.md` §7.
 - Billing/payment provider integration.
-- Attendance/HR/Payroll/Fees/Exam/Transport modules (Library and a minimal
-  Hostel are implemented as the pattern to replicate).
+- Product-per-domain routing (see "Request flow" above and
+  `docs/REQUIREMENTS_GAP_ANALYSIS.md` Finding 1).
 - Wildcard SSL / DNS automation for new tenant subdomains.

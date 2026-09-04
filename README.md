@@ -78,10 +78,27 @@ deliberately not covered yet.
 config/            # settings, URLconfs (public vs tenant), Celery app
 apps/core/         # SHARED_APPS: Client, Domain, Plan, Module, Subscription,
                     # subscription-enforcement middleware, Celery tasks
-apps/library/      # TENANT_APPS example module (Book, Member, Issue)
-apps/hostel/       # TENANT_APPS example module (Room, Resident) — minimal,
-                    # exists to prove the pattern generalizes beyond one module
-docs/               # ARCHITECTURE.md, FAILURE_MODES.md, TESTING.md
+apps/accounts/     # per-schema auth (custom User, JWT)
+apps/library/      # TENANT_APPS: Book/Member/Issue/Fine/Hold — full lending workflow
+apps/hostel/       # TENANT_APPS: Room/Resident/Allocation/Waitlist/Maintenance
+apps/attendance/   # TENANT_APPS: Student, daily marking, % summary
+apps/hr/           # TENANT_APPS: Department, Employee (CRUD)
+apps/payroll/      # TENANT_APPS: Payslip off apps.hr.Employee
+apps/fees/         # TENANT_APPS: FeeStructure, Payment, receipts
+apps/exam/         # TENANT_APPS: Student, Subject, ExamResult
+apps/transport/    # TENANT_APPS: Route, Vehicle, capacity-checked assignment
+apps/inventory/    # TENANT_APPS: Item/IssueRecord — Library's pattern, adapted
+docs/               # ARCHITECTURE.md, MODULES.md, FAILURE_MODES.md, TESTING.md,
+                    # REQUIREMENTS_GAP_ANALYSIS.md, PRODUCTION_READINESS.md
+```
+
+Onboard a new tenant in one step (Client + Domain + Subscription + owner
+user, rolled back together on any failure):
+
+```bash
+python manage.py create_tenant --name "ABC College" --slug abc \
+  --domain abc.eraj.com --plan Standard \
+  --owner-email owner@abc.edu --owner-password change-me-now
 ```
 
 ## Frontend
@@ -100,11 +117,15 @@ DPDP/runbook docs are in place; `docs/DEPLOY.md` covers the DigitalOcean
 
 ## Modules
 
-Library and Hostel are built to full workflow depth — lending (issue / return /
+All 9 products from `docs/REQUIREMENTS_GAP_ANALYSIS.md`'s source spec are
+built. Library and Hostel are full workflow depth — lending (issue / return /
 renew / fines / holds) and residence (allocate / vacate / waitlist /
-maintenance), with row-locked inventory/capacity, pagination + filtering, and
-an OpenAPI schema at `/api/schema/` (`/api/docs/` for Swagger UI). See
-`docs/MODULES.md`.
+maintenance). Attendance, HR, Payroll, Fees, Exam, Transport, Inventory are
+lean tier — CRUD plus the one core action each needs (see `docs/MODULES.md`
+for why, and each module's API). Every module: row-locked
+inventory/capacity where it matters, pagination + filtering, 409 on a
+business-rule conflict, and an OpenAPI schema at `/api/schema/`
+(`/api/docs/` for Swagger UI).
 
 ## What's next (not built here)
 

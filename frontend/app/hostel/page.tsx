@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 
+import { StatusNotice } from "@/app/_components/StatusNotice";
 import { getAccessToken } from "@/lib/auth";
 import { fetchFromBackend, getTenantSlug } from "@/lib/tenant";
 
@@ -23,7 +24,7 @@ export default async function HostelPage() {
   const result = await fetchFromBackend<Room[]>(tenantSlug, "/api/hostel/rooms/", token);
   if (!result.ok && result.status === 401) redirect("/login");
   if (!result.ok) {
-    return <div className="notice">{result.error}</div>;
+    return <StatusNotice result={result} />;
   }
 
   const rooms = result.data;

@@ -148,3 +148,25 @@ th {
   font-size: 13px;
   color: #888;
 }
+
+.notice--renewal {
+  background: #fff4e0;
+  color: #7a4a00;
+}
+
+.notice--renewal h2 {
+  margin: 0 0 8px;
+  font-size: 16px;
+}
+
+.renew-cta {
+  display: inline-block;
+  margin-top: 12px;
+  padding: 8px 16px;
+  border-radius: 6px;
+  background: var(--navy);
+  color: #fff;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 14px;
+}

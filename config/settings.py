@@ -57,6 +57,13 @@ TENANT_APPS = [
     "rest_framework_simplejwt.token_blacklist",
     "apps.library",
     "apps.hostel",
+    "apps.attendance",
+    "apps.hr",
+    "apps.payroll",  # depends on apps.hr (FK to Employee)
+    "apps.fees",
+    "apps.exam",
+    "apps.transport",
+    "apps.inventory",
 ]
 
 INSTALLED_APPS = list(SHARED_APPS) + [

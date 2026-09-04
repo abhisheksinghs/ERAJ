@@ -56,7 +56,12 @@ jobs:
       - name: Migrations in sync with models (informational — 3 hand-written migrations pending first real makemigrations)
         run: python manage.py makemigrations --check --dry-run
         continue-on-error: true
-      - run: python manage.py test apps.library.tests apps.hostel.tests apps.accounts.tests -v 2
+      - name: Tenant-schema test suites
+        run: >-
+          python manage.py test
+          apps.library.tests apps.hostel.tests apps.accounts.tests
+          apps.attendance.tests apps.transport.tests apps.inventory.tests
+          apps.payroll.tests apps.exam.tests -v 2
       - run: python -m pytest apps/core/tests/ -q
       - name: Django deploy checks
         run: DJANGO_ENV=prod python manage.py check --deploy --fail-level ERROR

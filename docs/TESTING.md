@@ -44,6 +44,11 @@ Config: `pytest.ini` points `DJANGO_SETTINGS_MODULE` at
 | Cache invalidation on downgrade | `pytest` | `apps/core/tests/test_middleware.py`, `test_tasks.py` |
 | Daily subscription recompute task | `pytest` | `apps/core/tests/test_tasks.py` |
 | JWT is tenant-bound; roles enforced | `manage.py test` | `apps/accounts/tests/test_auth_isolation.py` |
+| Attendance: idempotent marking, summary % | `manage.py test` | `apps/attendance/tests/test_attendance.py` |
+| Transport: capacity limit, unassign frees a seat | `manage.py test` | `apps/transport/tests/test_assignment.py` |
+| Inventory: availability limit, no double-return | `manage.py test` | `apps/inventory/tests/test_issue.py` |
+| Payroll: net-pay math, one payslip per period | `manage.py test` | `apps/payroll/tests/test_payslip.py` |
+| Exam: idempotent recording, overall % | `manage.py test` | `apps/exam/tests/test_results.py` |
 
 ## Deliberately not covered yet
 
@@ -53,6 +58,10 @@ Config: `pytest.ini` points `DJANGO_SETTINGS_MODULE` at
 - Frontend (Next.js) — `tsc` + `next build` run in CI; no component/e2e tests.
 - Superadmin cross-tenant reporting views — not built yet.
 - TOTP enrollment / verification flow (django-otp) — admin-only, manual smoke.
+- HR and Fees — pure CRUD with no branching logic to break; no dedicated
+  test file (the ModelViewSet/serializer machinery is exercised by every
+  other module's tests). Add one if a custom validation rule ever lands
+  on either.
 
 ## Running everything
 

@@ -32,6 +32,12 @@ MODULE_PATH_PREFIXES = {
     "/api/library": "library",
     "/api/hostel": "hostel",
     "/api/attendance": "attendance",
+    "/api/hr": "hr",
+    "/api/payroll": "payroll",
+    "/api/fees": "fees",
+    "/api/exam": "exam",
+    "/api/transport": "transport",
+    "/api/inventory": "inventory",
 }
 
 

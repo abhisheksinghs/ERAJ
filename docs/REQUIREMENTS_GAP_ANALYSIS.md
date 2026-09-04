@@ -135,21 +135,28 @@ session established for Library/Hostel: models (no tenant FK) → `services.py`
 for anything with a business rule → serializers → ViewSet + router → tests →
 migration. See `docs/MODULES.md` for the reference shape.
 
-| # | Item | Why this order | Rough size (vs. Library/Hostel build) |
-|---|---|---|---|
-| 1 | Fix `docs/ARCHITECTURE.md` to describe the actual (path-based) routing | Docs actively contradict the code today — cheapest, highest-confusion-reduction fix | trivial |
-| 2 | Resolve the dangling `attendance` reference — either build the module (next item) or remove it from `MODULE_PATH_PREFIXES`/seed until it exists | Currently harmless (403s cleanly) but misleading | trivial |
-| 3 | **Attendance module** — daily student/staff attendance records, per-date marking, a summary/percentage report | Smallest new module (2 models, no complex workflow); the `attendance` Module row already exists in the data model and plan | ~⅓ of a Library-sized build |
-| 4 | **Frontend renewal page** — a `/billing` (or reuse `/`) page that recognizes the 402 shape and shows a renewal CTA instead of the generic notice | Directly named in the PDF; small, isolated frontend change | small |
-| 5 | **Tenant onboarding as one atomic action** — a management command or superadmin API endpoint wrapping Client+Domain+Subscription (+owner user) creation in one transaction, rollback (schema drop) on failure | Closes the §7 "Super Admin flow" gap without building a full admin UI | small–medium |
-| 6 | **HR module** — employee records, department, designation | No dependents; standalone | ~½ of a Library-sized build |
-| 7 | **Fees module** — fee structure per plan/term, collection, receipts, dues | References Members/Residents conceptually but no hard FK dependency; can stand alone against a generic "Student" concept (doesn't exist yet — see note) | ~ Library-sized |
-| 8 | **Payroll module** — depends on HR's employee records | Build after HR so it has a real FK target instead of a stub | ~ Library-sized |
-| 9 | **Exam module** — exams, marks, results | Standalone; needs a "Student" concept shared with Fees/Attendance (see note) | ~ Library-sized |
-| 10 | **Transport module** — routes, vehicles, student assignment | Standalone, lowest business complexity of the remaining set | ~⅓ of a Library-sized build |
-| 11 | **Inventory module** — stock items, issue/return (structurally similar to Library's `Book`/`Issue`) | Last — smallest incremental design cost once the Library pattern exists, but lowest priority in the PDF's own ordering | ~⅓ of a Library-sized build, mostly copy-adapt from Library |
-| 12 | **Notifications** (core service the PDF lists) | Needed once Fees/Exam/renewal flows want to alert someone; premature before those exist | small, once triggered by something real |
-| 13 | **Billing/payment provider integration** | Explicitly deferred in every prior planning doc this session; needs a provider decision first | separate plan |
+| # | Item | Status |
+|---|---|---|
+| 1 | Fix `docs/ARCHITECTURE.md` to describe the actual (path-based) routing | ✅ done |
+| 2 | Resolve the dangling `attendance` reference | ✅ done — module built (item 3) |
+| 3 | **Attendance module** | ✅ done — lean tier: `Student`, `AttendanceRecord`, idempotent `mark`, `summary` report |
+| 4 | **Frontend renewal page** | ✅ done — `StatusNotice` component, dedicated 402 CTA |
+| 5 | **Tenant onboarding as one atomic action** | ✅ done — `manage.py create_tenant`, rolls back the schema on any failure |
+| 6 | **HR module** | ✅ done — lean tier: `Department`, `Employee`, pure CRUD |
+| 7 | **Fees module** | ✅ done — lean tier: `FeeStructure`, `Payment`, receipt generation, collections report. No dues/invoicing (needs enrollment model — still open) |
+| 8 | **Payroll module** | ✅ done — lean tier: `Payslip` off HR's `Employee`, flat net-pay math, explicitly **not** statutory-compliant |
+| 9 | **Exam module** | ✅ done — lean tier: own `Student`, `Subject`, `ExamResult`, idempotent recording + report |
+| 10 | **Transport module** | ✅ done — lean tier: `Route`, `Vehicle`, `TransportAssignment`, row-locked capacity check |
+| 11 | **Inventory module** | ✅ done — copy-adapted from Library's Book/Issue pattern |
+| 12 | **Notifications** (core service the PDF lists) | still deferred — no trigger exists yet to hang it off |
+| 13 | **Billing/payment provider integration** | still deferred — needs a provider decision first |
+| 14 | **Frontend pages for the 7 new modules** | not built this pass — same `app/library/page.tsx` pattern applies; scope cut to keep this pass reviewable |
+| 15 | **Shared "Student" registry** | deliberately not built — see `docs/MODULES.md`'s note; revisit if duplicate data entry becomes a real complaint |
+
+All 7 new modules are **lean tier**: CRUD + the one core action each
+obviously needs, no invented compliance/grading/routing logic with no real
+spec behind it. Not run against a live Django/Postgres — see the caveat at
+the end of this document.
 
 **Note on a shared "Student" concept:** Attendance, Fees, and Exam all
 independently need a person to attach records to. Library already has
@@ -166,12 +173,19 @@ matches what's already built and the PDF's "each module... independent"
 language; recommend it** unless duplicate data entry across modules becomes
 a real complaint.
 
-## What I'd do next
+## Status
 
-Items 1–2 are a five-minute cleanup and can go out immediately. Item 3
-(Attendance) is the natural next module — it completes the exact three
-products (`Library + Hostel + Attendance`) the PDF uses as its own worked
-example for the "Standard" plan. Items 4–5 close the two concrete PDF
-requirements (renewal page, onboarding flow) that aren't about new modules
-at all. Say which of these to execute and I'll build it the same way as
-Library/Hostel — code, tests, docs, one commit.
+Items 1–11 landed. `seed_demo_tenants` now seeds the PDF's own three-tenant
+example verbatim: ABC/Basic/Library, XYZ/Standard/Library+Hostel+Attendance,
+PQR/Premium/Library+Hostel+Attendance+HR+Payroll. Remaining: notifications,
+billing, frontend pages for the 7 new modules, and the shared-Student
+question — all explicitly deferred above, not oversights.
+
+**Not verified against a live Django/Postgres or `next build`** — same
+constraint as every prior pass this session. Highest risk: 7 new
+hand-written `0001_initial` migrations. Structurally lower risk than the
+earlier *additive* migrations (`accounts/0001`, `library/0002`,
+`hostel/0002`) — these are brand-new apps, so each migration only has to
+match the models.py written in the same commit, not reconcile against
+pre-existing columns. `makemigrations --check` in CI (informational) is
+still the backstop.

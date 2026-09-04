@@ -16,4 +16,11 @@ urlpatterns = [
     path("api/auth/", include("apps.accounts.urls")),
     path("api/library/", include("apps.library.urls")),
     path("api/hostel/", include("apps.hostel.urls")),
+    path("api/attendance/", include("apps.attendance.urls")),
+    path("api/hr/", include("apps.hr.urls")),
+    path("api/payroll/", include("apps.payroll.urls")),
+    path("api/fees/", include("apps.fees.urls")),
+    path("api/exam/", include("apps.exam.urls")),
+    path("api/transport/", include("apps.transport.urls")),
+    path("api/inventory/", include("apps.inventory.urls")),
 ]
