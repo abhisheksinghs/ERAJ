@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<style>
+  @page { size: A5 landscape; margin: 12mm; }
+  body { font-family: "Noto Sans", "Noto Sans Devanagari", sans-serif; font-size: 10pt; color: #1f2430; }
+  header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1.5pt solid #1e2761; padding-bottom: 6pt; }
+  h1 { font-size: 14pt; margin: 0; color: #1e2761; }
+  .muted { color: #5b6475; }
+  .meta { text-align: right; }
+  .meta b { font-size: 11pt; }
+  table { width: 100%; border-collapse: collapse; margin-top: 8pt; }
+  th, td { padding: 4pt 6pt; border-bottom: 0.5pt solid #d8dce5; text-align: left; }
+  th { background: #f1f3f8; font-weight: 600; }
+  td.amt, th.amt { text-align: right; white-space: nowrap; }
+  tfoot td { font-weight: 700; border-bottom: none; }
+  .grid { display: flex; gap: 18pt; margin-top: 8pt; }
+  .grid div { flex: 1; }
+  .words { margin-top: 6pt; font-style: italic; }
+  .foot { margin-top: 18pt; display: flex; justify-content: space-between; }
+  .stamp { position: fixed; top: 38%; left: 18%; font-size: 48pt; font-weight: 800; color: rgba(200, 30, 30, 0.18); transform: rotate(-18deg); }
+</style>
+</head>
+<body>
+{% if r.cancelled_at %}<div class="stamp">CANCELLED</div>{% elif duplicate %}<div class="stamp">DUPLICATE</div>{% endif %}
+<header>
+  <div>
+    <h1>{{ branch.name }}{% if branch.name_hi %} · {{ branch.name_hi }}{% endif %}</h1>
+    {% if branch.address %}<div class="muted">{{ branch.address }}</div>{% endif %}
+    {% if branch.phone %}<div class="muted">{{ branch.phone }}</div>{% endif %}
+  </div>
+  <div class="meta">
+    <div>FEE RECEIPT · शुल्क रसीद</div>
+    <b>{{ r.number }}</b>
+    <div>Date: {{ r.date|date:"d-m-Y" }}</div>
+  </div>
+</header>
+
+<div class="grid">
+  <div>
+    <div class="muted">Student · छात्र</div>
+    <div><b>{{ student.full_name }}</b>{% if student.name_hi %} ({{ student.name_hi }}){% endif %}</div>
+    <div>Admission no. {{ student.admission_no }}</div>
+  </div>
+  <div>
+    <div class="muted">Class · कक्षा</div>
+    <div>{% if enrollment %}{{ enrollment.program.name }}{% if enrollment.section %} – {{ enrollment.section.name }}{% endif %}{% if enrollment.roll_no %}, Roll {{ enrollment.roll_no }}{% endif %}{% else %}—{% endif %}</div>
+  </div>
+  <div>
+    <div class="muted">Paid by · भुगतान</div>
+    <div>{{ r.get_mode_display }}{% if r.reference %} · {{ r.reference }}{% endif %}</div>
+  </div>
+</div>
+
+<table>
+  <thead><tr><th>#</th><th>Particulars · विवरण</th><th>Due</th><th class="amt">Amount (₹)</th></tr></thead>
+  <tbody>
+  {% for line in lines %}
+    <tr><td>{{ forloop.counter }}</td><td>{{ line.charge.description }}</td><td>{{ line.charge.due_date|date:"d-m-Y" }}</td><td class="amt">{{ line.amount }}</td></tr>
+  {% endfor %}
+  </tbody>
+  <tfoot><tr><td></td><td>Total · कुल</td><td></td><td class="amt">₹ {{ r.amount }}</td></tr></tfoot>
+</table>
+<div class="words">{{ words }}</div>
+{% if r.cancelled_at %}<div class="words">Cancelled {{ r.cancelled_at|date:"d-m-Y H:i" }} — {{ r.cancel_reason }}</div>{% endif %}
+
+<div class="foot">
+  <div class="muted">Received by {{ r.received_by }} · printed {{ printed_at|date:"d-m-Y H:i" }}</div>
+  <div>Authorised signatory · अधिकृत हस्ताक्षर</div>
+</div>
+</body>
+</html>

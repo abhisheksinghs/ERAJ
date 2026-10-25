@@ -209,6 +209,12 @@ REST_FRAMEWORK = {
     "DEFAULT_THROTTLE_CLASSES": ("rest_framework.throttling.ScopedRateThrottle",),
     "DEFAULT_THROTTLE_RATES": {"login": config("LOGIN_THROTTLE_RATE", default="5/min")},
     "DEFAULT_PAGINATION_CLASS": "apps.core.pagination.StandardPagination",
+    "DEFAULT_RENDERER_CLASSES": (
+        "rest_framework.renderers.JSONRenderer",
+        "rest_framework.renderers.BrowsableAPIRenderer",
+        "apps.core.renderers.XlsxRenderer",  # ?format=xlsx on any list
+        "apps.core.renderers.CsvRenderer",  # ?format=csv
+    ),
     "PAGE_SIZE": config("API_PAGE_SIZE", default=25, cast=int),
     "DEFAULT_FILTER_BACKENDS": (
         "django_filters.rest_framework.DjangoFilterBackend",
