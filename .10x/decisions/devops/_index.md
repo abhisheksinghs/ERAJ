@@ -10,3 +10,8 @@
 ## Open
 - Staging host for 2026-11-11 (status.md B2).
 - Python 3.13 runtime needs `psycopg2-binary>=2.9.10`.
+
+## Active features
+| Slug | File | State |
+|---|---|---|
+| eraj-v1 | eraj-v1.md | Staging plan decided 2026-10-25 (VPS + Compose + Caddy on eraj.abhisheksingh.in) |

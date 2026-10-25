@@ -9,7 +9,7 @@
 | # | Blocker | Owner | Needed by |
 |---|---|---|---|
 | ~~B1~~ | ~~Push access~~ — GitHub connected by owner 2026-10-25 | — | — |
-| B2 | Staging hosting account (DigitalOcean BLR1, or a VPS) + domain/DNS for `*.staging` subdomains | Abhishek | ~2026-11-05 |
+| B2 | VPS (India, 4 GB / 2 vCPU, Ubuntu LTS) + SSH access; DNS A records `eraj.abhisheksingh.in` and `*.eraj.abhisheksingh.in` → VPS IP (domain decided 2026-10-25, see devops/eraj-v1.md) | Abhishek | ~2026-11-03 |
 | ~~B3~~ | ~~Branch model decision~~ — resolved 2026-10-25: branch rows inside client schema (ADR-001) | — | — |
 
 ## Phase log
