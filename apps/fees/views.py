@@ -5,7 +5,7 @@ from rest_framework import mixins, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
-from apps.accounts.permissions import RolePermission
+from apps.org.mixins import BranchScopedViewSetMixin
 from apps.fees import services
 from apps.fees.models import FeeStructure, Payment
 from apps.fees.serializers import (
@@ -16,10 +16,10 @@ from apps.fees.serializers import (
 )
 
 
-class FeeStructureViewSet(viewsets.ModelViewSet):
+class FeeStructureViewSet(BranchScopedViewSetMixin, viewsets.ModelViewSet):
     queryset = FeeStructure.objects.all()
     serializer_class = FeeStructureSerializer
-    permission_classes = [RolePermission]
+    perm_resource = "fees.structure"
     search_fields = ["name", "term"]
     ordering_fields = ["due_date", "amount", "created_at"]
 
@@ -39,17 +39,18 @@ class FeeStructureViewSet(viewsets.ModelViewSet):
 
 
 class PaymentViewSet(
+    BranchScopedViewSetMixin,
     mixins.CreateModelMixin, mixins.RetrieveModelMixin, mixins.ListModelMixin, viewsets.GenericViewSet
 ):
     queryset = Payment.objects.select_related("fee_structure").all()
     serializer_class = PaymentSerializer
-    permission_classes = [RolePermission]
+    perm_resource = "fees.payment"
     filterset_fields = ["fee_structure"]
     search_fields = ["payer_name", "payer_reference", "receipt_no"]
     ordering_fields = ["created_at", "amount"]
 
     def create(self, request, *args, **kwargs):
-        data = RecordPaymentSerializer(data=request.data)
+        data = RecordPaymentSerializer(data=request.data, context=self.get_serializer_context())
         data.is_valid(raise_exception=True)
         payment = services.record_payment(**data.validated_data)
         return Response(PaymentSerializer(payment).data, status=201)

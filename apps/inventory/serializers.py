@@ -1,12 +1,13 @@
 from rest_framework import serializers
 
 from apps.inventory.models import Item, IssueRecord
+from apps.org.serializers import BranchScopedSerializer, ScopedPrimaryKeyRelatedField
 
 
-class ItemSerializer(serializers.ModelSerializer):
+class ItemSerializer(BranchScopedSerializer):
     class Meta:
         model = Item
-        fields = ("id", "name", "sku", "category", "quantity_total", "quantity_available", "created_at")
+        fields = ("id", "branch", "name", "sku", "category", "quantity_total", "quantity_available", "created_at")
         read_only_fields = ("quantity_available", "created_at")
 
     def create(self, validated_data):
@@ -14,15 +15,15 @@ class ItemSerializer(serializers.ModelSerializer):
         return super().create(validated_data)
 
 
-class IssueRecordSerializer(serializers.ModelSerializer):
+class IssueRecordSerializer(BranchScopedSerializer):
     item_name = serializers.CharField(source="item.name", read_only=True)
 
     class Meta:
         model = IssueRecord
-        fields = ("id", "item", "item_name", "issued_to", "returned_at", "created_at")
+        fields = ("id", "branch", "item", "item_name", "issued_to", "returned_at", "created_at")
         read_only_fields = ("returned_at", "created_at")
 
 
 class IssueCreateSerializer(serializers.Serializer):
-    item = serializers.PrimaryKeyRelatedField(queryset=Item.objects.all())
+    item = ScopedPrimaryKeyRelatedField(queryset=Item.objects.all())
     issued_to = serializers.CharField(max_length=255)

@@ -24,7 +24,10 @@ def issue_book(*, book: Book, member) -> Issue:
 
     book.copies_available -= 1
     book.save(update_fields=["copies_available", "updated_at"])
+    if member.branch_id != book.branch_id:
+        raise Conflict("Book and member belong to different branches.")
     issue = Issue.objects.create(
+        branch=book.branch,
         book=book,
         member=member,
         due_date=timezone.localdate() + timedelta(days=settings.LIBRARY_LOAN_DAYS),
@@ -48,6 +51,7 @@ def return_book(*, issue: Issue):
     overdue_days = (timezone.localdate() - issue.due_date).days
     if overdue_days > 0:
         fine = Fine.objects.create(
+            branch=issue.branch,
             member=issue.member,
             issue=issue,
             amount=Decimal(overdue_days) * settings.LIBRARY_FINE_PER_DAY,

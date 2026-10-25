@@ -1,14 +1,14 @@
 """python manage.py test apps.inventory.tests.test_issue"""
-from django_tenants.test.cases import TenantTestCase
-
 from apps.core.exceptions import Conflict
+from apps.core.testing import EraTestCase
 from apps.inventory import services
 from apps.inventory.models import Item
 
 
-class IssueTest(TenantTestCase):
+class IssueTest(EraTestCase):
     def setUp(self):
-        self.item = Item.objects.create(name="Laptop", sku="SKU-1", quantity_total=1, quantity_available=1)
+        super().setUp()
+        self.item = Item.objects.create(branch=self.branch, name="Laptop", sku="SKU-1", quantity_total=1, quantity_available=1)
 
     def test_issue_decrements_and_blocks_at_zero(self):
         services.issue_item(item=self.item, issued_to="Front desk")

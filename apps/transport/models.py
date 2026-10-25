@@ -3,27 +3,30 @@ the assignment rather than a full person model — no other module needs to
 reference "who rides the bus", so a registry would be speculative (YAGNI)."""
 from django.db import models
 
+from apps.org.models import BranchOwned
 from apps.core.mixins import SoftDelete, TimeStamped
 
 
-class Route(TimeStamped):
-    name = models.CharField(max_length=100, unique=True)
+class Route(TimeStamped, BranchOwned):
+    name = models.CharField(max_length=100)
     stops = models.TextField(blank=True, help_text="One stop per line")
 
     class Meta:
         ordering = ("name",)
+        constraints = [models.UniqueConstraint(fields=["branch", "name"], name="transport_route_unique")]
 
     def __str__(self) -> str:
         return self.name
 
 
-class Vehicle(TimeStamped, SoftDelete):
-    number = models.CharField(max_length=20, unique=True)
+class Vehicle(TimeStamped, SoftDelete, BranchOwned):
+    number = models.CharField(max_length=20)
     capacity = models.PositiveSmallIntegerField(default=40)
     route = models.ForeignKey(Route, null=True, blank=True, on_delete=models.SET_NULL, related_name="vehicles")
 
     class Meta:
         ordering = ("number",)
+        constraints = [models.UniqueConstraint(fields=["branch", "number"], name="transport_vehicle_unique")]
 
     def __str__(self) -> str:
         return self.number
@@ -37,7 +40,7 @@ class Vehicle(TimeStamped, SoftDelete):
         return max(0, self.capacity - self.active_riders)
 
 
-class TransportAssignment(TimeStamped):
+class TransportAssignment(TimeStamped, BranchOwned):
     vehicle = models.ForeignKey(Vehicle, on_delete=models.PROTECT, related_name="assignments")
     rider_name = models.CharField(max_length=255)
     rider_contact = models.CharField(max_length=20, blank=True)

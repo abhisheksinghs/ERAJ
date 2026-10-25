@@ -55,6 +55,8 @@ TENANT_APPS = [
     "django.contrib.auth",  # per-schema users: each tenant has its own accounts_user
     "apps.accounts",
     "rest_framework_simplejwt.token_blacklist",
+    "apps.org",  # branches + role assignments (ADR-001, ADR-006)
+    "apps.people",  # shared student/staff registry (ADR-002)
     "apps.library",
     "apps.hostel",
     "apps.attendance",
@@ -161,8 +163,14 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
+# Uploads (student photos, staff documents) are personal data: each tenant's
+# files go under MEDIA_ROOT/<schema_name>/ so clients never share a folder.
+# They are not served directly — downloads go through authenticated API views.
+MEDIA_ROOT = config("MEDIA_ROOT", default=str(BASE_DIR / "media"))
+MEDIA_URL = "/media/"
+MULTITENANT_RELATIVE_MEDIA_ROOT = "%s"
 STORAGES = {
-    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    "default": {"BACKEND": "django_tenants.files.storage.TenantFileSystemStorage"},
     "staticfiles": {"BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"},
 }
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"

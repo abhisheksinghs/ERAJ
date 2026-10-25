@@ -4,12 +4,12 @@ from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 
-from apps.accounts.permissions import IsOwner, RolePermission
 from apps.core.exceptions import Conflict
 from apps.library import services
 from apps.library.filters import BookFilter, FineFilter, IssueFilter
 from apps.library.isbn import lookup as isbn_lookup
 from apps.library.models import Book, Category, Fine, Hold, Issue, Member
+from apps.org.mixins import BranchScopedViewSetMixin
 from apps.library.serializers import (
     BookSerializer,
     CategorySerializer,
@@ -22,19 +22,19 @@ from apps.library.serializers import (
 )
 
 
-class CategoryViewSet(viewsets.ModelViewSet):
+class CategoryViewSet(BranchScopedViewSetMixin, viewsets.ModelViewSet):
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
-    permission_classes = [RolePermission]
+    perm_resource = "library.category"
     search_fields = ["name"]
 
 
-class BookViewSet(viewsets.ModelViewSet):
+class BookViewSet(BranchScopedViewSetMixin, viewsets.ModelViewSet):
     queryset = Book.objects.select_related("category").all()
     serializer_class = BookSerializer
-    permission_classes = [RolePermission]
+    perm_resource = "library.book"
     filterset_class = BookFilter
-    search_fields = ["title", "author", "isbn"]
+    search_fields = ["title", "author", "isbn", "barcode"]
     ordering_fields = ["title", "created_at", "copies_available", "published_year"]
 
     @action(detail=False, methods=["get"])
@@ -45,26 +45,27 @@ class BookViewSet(viewsets.ModelViewSet):
         return Response(IsbnLookupSerializer(isbn_lookup(isbn)).data)
 
 
-class MemberViewSet(viewsets.ModelViewSet):
+class MemberViewSet(BranchScopedViewSetMixin, viewsets.ModelViewSet):
     serializer_class = MemberSerializer
-    permission_classes = [RolePermission]
-    search_fields = ["full_name", "email"]
-    ordering_fields = ["full_name", "created_at"]
-
-    def get_queryset(self):
-        return Member.objects.annotate(
-            open_loan_count=Count("issues", filter=Q(issues__returned_at__isnull=True))
-        )
+    perm_resource = "library.member"
+    search_fields = ["student__full_name", "student__admission_no", "staff__full_name", "staff__employee_code"]
+    ordering_fields = ["created_at"]
+    filterset_fields = ["student", "staff"]
+    queryset = Member.objects.select_related("student", "staff").annotate(
+        open_loan_count=Count("issues", filter=Q(issues__returned_at__isnull=True))
+    )
 
 
 class IssueViewSet(
+    BranchScopedViewSetMixin,
     mixins.CreateModelMixin,
     mixins.RetrieveModelMixin,
     mixins.ListModelMixin,
     viewsets.GenericViewSet,
 ):
-    queryset = Issue.objects.select_related("book", "member").all()
-    permission_classes = [RolePermission]
+    queryset = Issue.objects.select_related("book", "member__student", "member__staff").all()
+    perm_resource = "library.issue"
+    action_perms = {"return_book": "library.issue.return", "renew": "library.issue.renew"}
     filterset_class = IssueFilter
     ordering_fields = ["due_date", "created_at"]
 
@@ -72,7 +73,7 @@ class IssueViewSet(
         return IssueCreateSerializer if self.action == "create" else IssueSerializer
 
     def create(self, request, *args, **kwargs):
-        data = IssueCreateSerializer(data=request.data)
+        data = IssueCreateSerializer(data=request.data, context=self.get_serializer_context())
         data.is_valid(raise_exception=True)
         issue = services.issue_book(**data.validated_data)
         return Response(IssueSerializer(issue).data, status=201)
@@ -90,21 +91,24 @@ class IssueViewSet(
 
 
 class FineViewSet(
+    BranchScopedViewSetMixin,
     mixins.RetrieveModelMixin, mixins.ListModelMixin, mixins.UpdateModelMixin, viewsets.GenericViewSet
 ):
     queryset = Fine.objects.select_related("member", "issue").all()
     serializer_class = FineSerializer
-    permission_classes = [RolePermission]
+    perm_resource = "library.fine"
+    action_perms = {"waive": "library.fine.waive"}
     filterset_class = FineFilter
     ordering_fields = ["created_at", "amount"]
 
-    @action(detail=True, methods=["post"], permission_classes=[IsOwner])
+    @action(detail=True, methods=["post"])
     def waive(self, request, pk=None):
         fine = services.waive_fine(fine=self.get_object(), by=request.user.email)
         return Response(FineSerializer(fine).data)
 
 
 class HoldViewSet(
+    BranchScopedViewSetMixin,
     mixins.CreateModelMixin,
     mixins.RetrieveModelMixin,
     mixins.ListModelMixin,
@@ -113,7 +117,7 @@ class HoldViewSet(
 ):
     queryset = Hold.objects.select_related("book", "member").all()
     serializer_class = HoldSerializer
-    permission_classes = [RolePermission]
+    perm_resource = "library.hold"
     filterset_fields = ["book", "member", "status"]
 
     def perform_create(self, serializer):
@@ -125,7 +129,7 @@ class HoldViewSet(
             book=book, member=member, status__in=[Hold.Status.WAITING, Hold.Status.READY]
         ).exists():
             raise Conflict("Member already has an active hold on this title.")
-        serializer.save()
+        super().perform_create(serializer)
 
     def perform_destroy(self, instance):
         instance.status = Hold.Status.CANCELLED

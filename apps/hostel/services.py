@@ -16,7 +16,7 @@ allocation_changed = Signal()  # kwargs: allocation, action ("allocated" | "vaca
 
 
 @transaction.atomic
-def allocate(*, resident, room: Room) -> Allocation:
+def allocate(*, student, room: Room) -> Allocation:
     room = Room.objects.select_for_update().get(pk=room.pk)
     if room.status != Room.Status.ACTIVE:
         raise Conflict(f"Room is {room.get_status_display().lower()}.")
@@ -25,11 +25,13 @@ def allocate(*, resident, room: Room) -> Allocation:
     active = room.allocations.filter(check_out_date__isnull=True).count()
     if active >= room.capacity:
         raise Conflict("Room is at capacity.")
-    if resident.allocations.filter(check_out_date__isnull=True).exists():
-        raise Conflict("Resident already has an active allocation.")
+    if student.branch_id != room.branch_id:
+        raise Conflict("Student and room belong to different branches.")
+    if student.hostel_allocations.filter(check_out_date__isnull=True).exists():
+        raise Conflict("Student already has an active allocation.")
 
-    alloc = Allocation.objects.create(resident=resident, room=room)
-    record("hostel.allocate", detail={"allocation": alloc.pk, "resident": resident.pk, "room": room.pk})
+    alloc = Allocation.objects.create(branch=room.branch, student=student, room=room)
+    record("hostel.allocate", detail={"allocation": alloc.pk, "student": student.pk, "room": room.pk})
     allocation_changed.send(sender=allocate, allocation=alloc, action="allocated")
     return alloc
 

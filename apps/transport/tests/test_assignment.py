@@ -1,14 +1,14 @@
 """python manage.py test apps.transport.tests.test_assignment"""
-from django_tenants.test.cases import TenantTestCase
-
 from apps.core.exceptions import Conflict
+from apps.core.testing import EraTestCase
 from apps.transport import services
 from apps.transport.models import Vehicle
 
 
-class AssignmentTest(TenantTestCase):
+class AssignmentTest(EraTestCase):
     def setUp(self):
-        self.vehicle = Vehicle.objects.create(number="V1", capacity=1)
+        super().setUp()
+        self.vehicle = Vehicle.objects.create(branch=self.branch, number="V1", capacity=1)
 
     def test_assign_respects_capacity(self):
         services.assign(vehicle=self.vehicle, rider_name="A")

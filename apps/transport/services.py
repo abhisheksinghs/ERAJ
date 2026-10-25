@@ -12,6 +12,7 @@ def assign(*, vehicle: Vehicle, rider_name: str, rider_contact: str = "", pickup
     if vehicle.active_riders >= vehicle.capacity:
         raise Conflict("Vehicle is at capacity.")
     assignment = TransportAssignment.objects.create(
+        branch=vehicle.branch,
         vehicle=vehicle, rider_name=rider_name, rider_contact=rider_contact, pickup_point=pickup_point
     )
     record("transport.assigned", detail={"assignment": assignment.pk, "vehicle": vehicle.pk})

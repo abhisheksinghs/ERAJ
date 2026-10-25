@@ -25,4 +25,4 @@ class AllocationFilter(filters.FilterSet):
 
     class Meta:
         model = Allocation
-        fields = ["resident", "room"]
+        fields = ["student", "room"]

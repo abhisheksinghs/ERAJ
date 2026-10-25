@@ -4,12 +4,13 @@ dates/fines/holds — stock issue/return has no lending-period concept."""
 from django.db import models
 from django.db.models import F, Q
 
+from apps.org.models import BranchOwned
 from apps.core.mixins import SoftDelete, TimeStamped
 
 
-class Item(TimeStamped, SoftDelete):
+class Item(TimeStamped, SoftDelete, BranchOwned):
     name = models.CharField(max_length=255)
-    sku = models.CharField(max_length=50, unique=True)
+    sku = models.CharField(max_length=50)
     category = models.CharField(max_length=100, blank=True)
     quantity_total = models.PositiveIntegerField(default=1)
     quantity_available = models.PositiveIntegerField(default=1)
@@ -17,6 +18,7 @@ class Item(TimeStamped, SoftDelete):
     class Meta:
         ordering = ("name",)
         constraints = [
+            models.UniqueConstraint(fields=["branch", "sku"], name="inventory_item_sku_unique"),
             models.CheckConstraint(check=Q(quantity_available__gte=0), name="inventory_item_available_nonneg"),
             models.CheckConstraint(
                 check=Q(quantity_available__lte=F("quantity_total")), name="inventory_item_available_lte_total"
@@ -27,7 +29,7 @@ class Item(TimeStamped, SoftDelete):
         return f"{self.name} ({self.sku})"
 
 
-class IssueRecord(TimeStamped):
+class IssueRecord(TimeStamped, BranchOwned):
     item = models.ForeignKey(Item, on_delete=models.PROTECT, related_name="issues")
     issued_to = models.CharField(max_length=255)
     returned_at = models.DateTimeField(null=True, blank=True)

@@ -2,18 +2,20 @@
 Hostel module models. In TENANT_APPS — one copy per tenant schema, no
 tenant FK (isolation is the schema).
 
-Residence is modelled as an `Allocation` (resident <-> room, with dates) rather
-than a plain FK on Resident, so vacating keeps history and capacity can be
-enforced against the count of *active* allocations.
+Residence is modelled as an `Allocation` (student <-> room, with dates) so
+vacating keeps history and capacity is enforced against the count of *active*
+allocations. Residents are `people.Student` rows (ADR-002); every row here is
+branch-owned (ADR-001).
 """
 from django.db import models
 from django.db.models import Q
 from django.utils import timezone
 
 from apps.core.mixins import SoftDelete, TimeStamped
+from apps.org.models import BranchOwned
 
 
-class Room(TimeStamped, SoftDelete):
+class Room(TimeStamped, SoftDelete, BranchOwned):
     class Type(models.TextChoices):
         SINGLE = "single", "Single"
         DOUBLE = "double", "Double"
@@ -29,7 +31,7 @@ class Room(TimeStamped, SoftDelete):
         MAINTENANCE = "maintenance", "Under maintenance"
         DECOMMISSIONED = "decommissioned", "Decommissioned"
 
-    number = models.CharField(max_length=20, unique=True)
+    number = models.CharField(max_length=20)
     capacity = models.PositiveSmallIntegerField(default=2)
     room_type = models.CharField(max_length=10, choices=Type.choices, default=Type.DOUBLE)
     gender = models.CharField(max_length=6, choices=Gender.choices, default=Gender.ANY)
@@ -38,6 +40,7 @@ class Room(TimeStamped, SoftDelete):
 
     class Meta:
         ordering = ("number",)
+        constraints = [models.UniqueConstraint(fields=["branch", "number"], name="hostel_room_number_unique")]
 
     def __str__(self) -> str:
         return self.number
@@ -55,30 +58,8 @@ class Room(TimeStamped, SoftDelete):
         return self.maintenance_tickets.filter(status=MaintenanceTicket.Status.OPEN).exists()
 
 
-class Resident(TimeStamped, SoftDelete):
-    full_name = models.CharField(max_length=255)
-    email = models.EmailField(blank=True)
-    phone = models.CharField(max_length=20, blank=True)
-    guardian_name = models.CharField(max_length=255, blank=True)
-    guardian_phone = models.CharField(max_length=20, blank=True)
-
-    class Meta:
-        ordering = ("full_name",)
-
-    def __str__(self) -> str:
-        return self.full_name
-
-    @property
-    def current_allocation(self):
-        return (
-            self.allocations.filter(check_out_date__isnull=True)
-            .select_related("room")
-            .first()
-        )
-
-
-class Allocation(TimeStamped):
-    resident = models.ForeignKey(Resident, on_delete=models.PROTECT, related_name="allocations")
+class Allocation(TimeStamped, BranchOwned):
+    student = models.ForeignKey("people.Student", on_delete=models.PROTECT, related_name="hostel_allocations")
     room = models.ForeignKey(Room, on_delete=models.PROTECT, related_name="allocations")
     check_in_date = models.DateField(default=timezone.localdate)
     check_out_date = models.DateField(null=True, blank=True)
@@ -87,28 +68,28 @@ class Allocation(TimeStamped):
         ordering = ("-check_in_date",)
         constraints = [
             models.UniqueConstraint(
-                fields=["resident"],
+                fields=["student"],
                 condition=Q(check_out_date__isnull=True),
-                name="hostel_one_active_allocation_per_resident",
+                name="hostel_one_active_allocation_per_student",
             ),
         ]
 
     def __str__(self) -> str:
-        return f"{self.resident} @ {self.room}"
+        return f"{self.student} @ {self.room}"
 
     @property
     def is_active(self) -> bool:
         return self.check_out_date is None
 
 
-class Waitlist(TimeStamped):
+class Waitlist(TimeStamped, BranchOwned):
     class Status(models.TextChoices):
         WAITING = "waiting", "Waiting"
         OFFERED = "offered", "Offered"
         FULFILLED = "fulfilled", "Fulfilled"
         CANCELLED = "cancelled", "Cancelled"
 
-    resident = models.ForeignKey(Resident, on_delete=models.CASCADE, related_name="waitlist_entries")
+    student = models.ForeignKey("people.Student", on_delete=models.CASCADE, related_name="hostel_waitlist_entries")
     room = models.ForeignKey(Room, on_delete=models.CASCADE, related_name="waitlist")
     status = models.CharField(max_length=10, choices=Status.choices, default=Status.WAITING)
 
@@ -116,17 +97,17 @@ class Waitlist(TimeStamped):
         ordering = ("created_at",)
         constraints = [
             models.UniqueConstraint(
-                fields=["resident", "room"],
+                fields=["student", "room"],
                 condition=Q(status__in=["waiting", "offered"]),
-                name="hostel_one_active_waitlist_entry_per_resident_room",
+                name="hostel_one_active_waitlist_entry_per_student_room",
             ),
         ]
 
     def __str__(self) -> str:
-        return f"waitlist: {self.resident} -> {self.room} ({self.status})"
+        return f"waitlist: {self.student} -> {self.room} ({self.status})"
 
 
-class MaintenanceTicket(TimeStamped):
+class MaintenanceTicket(TimeStamped, BranchOwned):
     class Status(models.TextChoices):
         OPEN = "open", "Open"
         CLOSED = "closed", "Closed"

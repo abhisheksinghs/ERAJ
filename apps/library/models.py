@@ -1,8 +1,7 @@
 """
-Library module models. This app is in TENANT_APPS: a fresh copy of these
-tables is created in EVERY tenant schema. There is deliberately NO
-tenant_id/client foreign key — isolation comes from the Postgres schema
-itself (see docs/FAILURE_MODES.md).
+Library module models. TENANT app (isolation is the schema, no tenant FK);
+every row is branch-owned (ADR-001) and borrowers are students or staff from
+the shared registry (ADR-002).
 """
 from decimal import Decimal
 
@@ -13,23 +12,26 @@ from django.db.models import F, Q
 from django.utils import timezone
 
 from apps.core.mixins import SoftDelete, TimeStamped
+from apps.org.models import BranchOwned
 
 
-class Category(TimeStamped):
-    name = models.CharField(max_length=100, unique=True)
+class Category(TimeStamped, BranchOwned):
+    name = models.CharField(max_length=100)
 
     class Meta:
         verbose_name_plural = "categories"
         ordering = ("name",)
+        constraints = [models.UniqueConstraint(fields=["branch", "name"], name="library_category_unique")]
 
     def __str__(self) -> str:
         return self.name
 
 
-class Book(TimeStamped, SoftDelete):
+class Book(TimeStamped, SoftDelete, BranchOwned):
     title = models.CharField(max_length=255)
     author = models.CharField(max_length=255)
-    isbn = models.CharField(max_length=20, unique=True)
+    isbn = models.CharField(max_length=20)
+    barcode = models.CharField(max_length=50, blank=True, db_index=True)
     publisher = models.CharField(max_length=255, blank=True)
     published_year = models.PositiveSmallIntegerField(null=True, blank=True)
     category = models.ForeignKey(
@@ -43,6 +45,7 @@ class Book(TimeStamped, SoftDelete):
     class Meta:
         ordering = ("title",)
         constraints = [
+            models.UniqueConstraint(fields=["branch", "isbn"], name="library_book_isbn_unique"),
             models.CheckConstraint(
                 check=Q(copies_available__gte=0), name="library_book_available_nonneg"
             ),
@@ -56,18 +59,42 @@ class Book(TimeStamped, SoftDelete):
         return self.title
 
 
-class Member(TimeStamped, SoftDelete):
-    full_name = models.CharField(max_length=255)
-    email = models.EmailField()
-    phone = models.CharField(max_length=20, blank=True)
+class Member(TimeStamped, SoftDelete, BranchOwned):
+    """A borrowing profile for exactly one student or one staff member."""
+
+    student = models.OneToOneField(
+        "people.Student", null=True, blank=True, on_delete=models.PROTECT, related_name="library_member"
+    )
+    staff = models.OneToOneField(
+        "people.Staff", null=True, blank=True, on_delete=models.PROTECT, related_name="library_member"
+    )
     # Per-member override; None -> settings.LIBRARY_DEFAULT_BORROW_LIMIT.
     max_books = models.PositiveSmallIntegerField(null=True, blank=True)
 
     class Meta:
-        ordering = ("full_name",)
+        ordering = ("created_at",)
+        constraints = [
+            models.CheckConstraint(
+                check=(Q(student__isnull=False) & Q(staff__isnull=True))
+                | (Q(student__isnull=True) & Q(staff__isnull=False)),
+                name="library_member_is_student_xor_staff",
+            ),
+        ]
 
     def __str__(self) -> str:
         return self.full_name
+
+    @property
+    def person(self):
+        return self.student or self.staff
+
+    @property
+    def full_name(self) -> str:
+        return self.person.full_name
+
+    @property
+    def phone(self) -> str:
+        return self.person.phone
 
     @property
     def effective_borrow_limit(self) -> int:
@@ -78,7 +105,7 @@ class Member(TimeStamped, SoftDelete):
         return self.issues.filter(returned_at__isnull=True).count()
 
 
-class Issue(TimeStamped):
+class Issue(TimeStamped, BranchOwned):
     book = models.ForeignKey(Book, on_delete=models.PROTECT, related_name="issues")
     member = models.ForeignKey(Member, on_delete=models.PROTECT, related_name="issues")
     due_date = models.DateField()
@@ -107,7 +134,7 @@ class Issue(TimeStamped):
         return not self.is_returned and self.due_date < timezone.localdate()
 
 
-class Fine(TimeStamped):
+class Fine(TimeStamped, BranchOwned):
     member = models.ForeignKey(Member, on_delete=models.PROTECT, related_name="fines")
     issue = models.ForeignKey(Issue, on_delete=models.PROTECT, related_name="fines")
     amount = models.DecimalField(max_digits=8, decimal_places=2)
@@ -127,7 +154,7 @@ class Fine(TimeStamped):
         return Decimal("0.00") if (self.paid or self.waived) else self.amount
 
 
-class Hold(TimeStamped):
+class Hold(TimeStamped, BranchOwned):
     class Status(models.TextChoices):
         WAITING = "waiting", "Waiting"
         READY = "ready", "Ready for pickup"

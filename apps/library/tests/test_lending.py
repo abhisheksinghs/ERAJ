@@ -4,21 +4,22 @@
 """
 from decimal import Decimal
 
-from django_tenants.test.cases import TenantTestCase
 from freezegun import freeze_time
 
 from apps.core.exceptions import Conflict
+from apps.core.testing import EraTestCase
 from apps.library import services
-from apps.library.models import Book, Hold, Member
+from apps.library.models import Book, Hold
 
 
-class LendingTest(TenantTestCase):
+class LendingTest(EraTestCase):
     def setUp(self):
+        super().setUp()
         self.book = Book.objects.create(
-            title="T", author="A", isbn="I-1", copies_total=1, copies_available=1
+            branch=self.branch, title="T", author="A", isbn="I-1", copies_total=1, copies_available=1
         )
-        self.m1 = Member.objects.create(full_name="M1", email="m1@x.com")
-        self.m2 = Member.objects.create(full_name="M2", email="m2@x.com")
+        self.m1 = self.make_member()
+        self.m2 = self.make_member()
 
     def test_issue_decrements_and_blocks_at_zero(self):
         services.issue_book(book=self.book, member=self.m1)
@@ -48,13 +49,13 @@ class LendingTest(TenantTestCase):
 
     def test_renew_blocked_by_waiting_hold(self):
         issue = services.issue_book(book=self.book, member=self.m1)
-        Hold.objects.create(book=self.book, member=self.m2)
+        Hold.objects.create(branch=self.branch, book=self.book, member=self.m2)
         with self.assertRaises(Conflict):
             services.renew_issue(issue=issue)
 
     def test_hold_promoted_on_return(self):
         issue = services.issue_book(book=self.book, member=self.m1)
-        hold = Hold.objects.create(book=self.book, member=self.m2)
+        hold = Hold.objects.create(branch=self.branch, book=self.book, member=self.m2)
         services.return_book(issue=issue)
         hold.refresh_from_db()
         self.assertEqual(hold.status, Hold.Status.READY)
@@ -63,8 +64,14 @@ class LendingTest(TenantTestCase):
         self.m1.max_books = 1
         self.m1.save()
         book2 = Book.objects.create(
-            title="T2", author="A", isbn="I-2", copies_total=1, copies_available=1
+            branch=self.branch, title="T2", author="A", isbn="I-2", copies_total=1, copies_available=1
         )
         services.issue_book(book=self.book, member=self.m1)
         with self.assertRaises(Conflict):
             services.issue_book(book=book2, member=self.m1)
+
+    def test_book_and_member_from_different_branches_conflict(self):
+        other = self.make_branch("other")
+        stranger = self.make_member(student=self.make_student(branch=other))
+        with self.assertRaises(Conflict):
+            services.issue_book(book=self.book, member=stranger)

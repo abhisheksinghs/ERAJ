@@ -7,10 +7,11 @@ report. "Dues" (who still owes what) needs invoicing and is out of scope.
 """
 from django.db import models
 
+from apps.org.models import BranchOwned
 from apps.core.mixins import TimeStamped
 
 
-class FeeStructure(TimeStamped):
+class FeeStructure(TimeStamped, BranchOwned):
     name = models.CharField(max_length=255)
     term = models.CharField(max_length=100, blank=True, help_text='e.g. "2026 Annual"')
     amount = models.DecimalField(max_digits=10, decimal_places=2)
@@ -23,15 +24,16 @@ class FeeStructure(TimeStamped):
         return f"{self.name} ({self.amount})"
 
 
-class Payment(TimeStamped):
+class Payment(TimeStamped, BranchOwned):
     fee_structure = models.ForeignKey(FeeStructure, on_delete=models.PROTECT, related_name="payments")
     payer_name = models.CharField(max_length=255)
     payer_reference = models.CharField(max_length=100, blank=True, help_text="admission/roll no, etc.")
     amount = models.DecimalField(max_digits=10, decimal_places=2)
-    receipt_no = models.CharField(max_length=30, unique=True)
+    receipt_no = models.CharField(max_length=30)
 
     class Meta:
         ordering = ("-created_at",)
+        constraints = [models.UniqueConstraint(fields=["branch", "receipt_no"], name="fees_receipt_no_unique")]
 
     def __str__(self) -> str:
         return f"{self.receipt_no} — {self.payer_name} ({self.amount})"

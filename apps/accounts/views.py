@@ -1,7 +1,6 @@
-from rest_framework import generics
+from rest_framework import generics, serializers
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
@@ -33,8 +32,13 @@ class RefreshView(TokenRefreshView):
     serializer_class = SchemaScopedTokenRefreshSerializer
 
 
-class LogoutView(APIView):
+class LogoutSerializer(serializers.Serializer):
+    refresh = serializers.CharField(required=False)
+
+
+class LogoutView(generics.GenericAPIView):
     permission_classes = [IsAuthenticated]
+    serializer_class = LogoutSerializer
 
     def post(self, request):
         try:

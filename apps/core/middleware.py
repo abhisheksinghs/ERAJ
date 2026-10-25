@@ -38,6 +38,8 @@ MODULE_PATH_PREFIXES = {
     "/api/exam": "exam",
     "/api/transport": "transport",
     "/api/inventory": "inventory",
+    "/api/timetable": "timetable",
+    "/api/learning": "learning",
 }
 
 

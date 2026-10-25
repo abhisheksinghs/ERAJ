@@ -13,7 +13,7 @@ def issue_item(*, item: Item, issued_to: str) -> IssueRecord:
         raise Conflict("No units available.")
     item.quantity_available -= 1
     item.save(update_fields=["quantity_available", "updated_at"])
-    issue = IssueRecord.objects.create(item=item, issued_to=issued_to)
+    issue = IssueRecord.objects.create(branch=item.branch, item=item, issued_to=issued_to)
     record("inventory.issue", detail={"issue": issue.pk, "item": item.pk, "issued_to": issued_to})
     return issue
 

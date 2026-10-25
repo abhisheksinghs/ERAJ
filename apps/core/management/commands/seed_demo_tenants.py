@@ -1,3 +1,12 @@
+"""
+Demo data for local development and staging walkthroughs. Never run in prod.
+
+    abc  — Basic plan (library), one branch
+    pqr  — Premium plan (every module), two branches (Patna, Gaya) with
+           a group admin, a librarian, an accountant, a teacher and a warden
+
+All demo users share DEMO_PASSWORD.
+"""
 from datetime import timedelta
 
 from django.contrib.auth import get_user_model
@@ -5,133 +14,156 @@ from django.core.management.base import BaseCommand
 from django.utils import timezone
 from django_tenants.utils import schema_context
 
+from apps.core.management.commands.create_tenant import seed_tenant_basics
 from apps.core.models import Client, Domain, Module, Plan, PlanModule, Subscription
 
 User = get_user_model()
 
 DEMO_PASSWORD = "eraj-demo-pass-123"  # dev only
 
+MODULES = [
+    ("library", "Library"),
+    ("hostel", "Hostel and Mess"),
+    ("attendance", "Attendance"),
+    ("hr", "HR"),
+    ("payroll", "Payroll"),
+    ("fees", "Fees"),
+    ("exam", "Exam"),
+    ("transport", "Transport"),
+    ("inventory", "Inventory"),
+    ("timetable", "Timetable"),
+    ("learning", "Homework and online learning"),
+]
+
 
 class Command(BaseCommand):
-    help = (
-        "Seed 3 demo tenants matching the spec's own worked example "
-        "(ABC=Basic/Library, XYZ=Standard/Library+Attendance, PQR=Premium/"
-        "Library+Hostel+Attendance+HR+Payroll), plus every product's plan-gating."
-    )
+    help = "Seed demo tenants: abc (Basic, 1 branch) and pqr (Premium, 2 branches)."
 
     def handle(self, *args, **options):
-        modules = {
-            code: Module.objects.get_or_create(code=code, defaults={"name": name})[0]
-            for code, name in [
-                ("library", "Library"),
-                ("hostel", "Hostel"),
-                ("attendance", "Attendance"),
-                ("hr", "HR"),
-                ("payroll", "Payroll"),
-                ("fees", "Fees"),
-                ("exam", "Exam"),
-                ("transport", "Transport"),
-                ("inventory", "Inventory"),
-            ]
-        }
-
+        modules = {code: Module.objects.get_or_create(code=code, defaults={"name": name})[0] for code, name in MODULES}
         basic, _ = Plan.objects.get_or_create(name="Basic", defaults={"price_per_year": 30000})
-        standard, _ = Plan.objects.get_or_create(name="Standard", defaults={"price_per_year": 60000})
         premium, _ = Plan.objects.get_or_create(name="Premium", defaults={"price_per_year": 120000})
-
-        for plan, codes in [
-            (basic, ["library"]),
-            (standard, ["library", "hostel", "attendance"]),
-            (premium, ["library", "hostel", "attendance", "hr", "payroll"]),
-        ]:
-            for code in codes:
-                PlanModule.objects.get_or_create(plan=plan, module=modules[code])
+        PlanModule.objects.get_or_create(plan=basic, module=modules["library"])
+        for module in modules.values():
+            PlanModule.objects.get_or_create(plan=premium, module=module)
 
         today = timezone.localdate()
+        for schema, name, plan in [("abc", "ABC College", basic), ("pqr", "PQR Educational Trust", premium)]:
+            client, _ = Client.objects.get_or_create(schema_name=schema, defaults={"name": name, "slug": schema})
+            Domain.objects.get_or_create(domain=f"{schema}.localhost", tenant=client, defaults={"is_primary": True})
+            Subscription.objects.get_or_create(
+                client=client,
+                defaults={
+                    "plan": plan,
+                    "status": Subscription.Status.ACTIVE,
+                    "start_date": today - timedelta(days=30),
+                    "end_date": today + timedelta(days=335),
+                },
+            )
 
-        abc, _ = Client.objects.get_or_create(
-            schema_name="abc", defaults={"name": "ABC College", "slug": "abc"}
-        )
-        Domain.objects.get_or_create(domain="abc.localhost", tenant=abc, defaults={"is_primary": True})
-        Subscription.objects.get_or_create(
-            client=abc,
-            defaults={
-                "plan": basic,
-                "status": Subscription.Status.ACTIVE,
-                "start_date": today - timedelta(days=30),
-                "end_date": today + timedelta(days=335),
-            },
-        )
-        self._seed_tenant("abc", library=True, hostel=False, hr=False)
+        with schema_context("abc"):
+            branch, _ = seed_tenant_basics(
+                owner_email="owner@abc.eraj.test", owner_password=DEMO_PASSWORD,
+                branch_code="main", branch_name="ABC College",
+            )
+            self._library(branch)
 
-        xyz, _ = Client.objects.get_or_create(
-            schema_name="xyz", defaults={"name": "XYZ College", "slug": "xyz"}
-        )
-        Domain.objects.get_or_create(domain="xyz.localhost", tenant=xyz, defaults={"is_primary": True})
-        Subscription.objects.get_or_create(
-            client=xyz,
-            defaults={
-                "plan": standard,
-                "status": Subscription.Status.ACTIVE,
-                "start_date": today - timedelta(days=10),
-                "end_date": today + timedelta(days=355),
-            },
-        )
-        self._seed_tenant("xyz", library=True, hostel=True, hr=False)
+        with schema_context("pqr"):
+            patna, _ = seed_tenant_basics(
+                owner_email="owner@pqr.eraj.test", owner_password=DEMO_PASSWORD,
+                branch_code="patna", branch_name="Patna campus",
+            )
+            from apps.org.models import Branch
 
-        pqr, _ = Client.objects.get_or_create(
-            schema_name="pqr", defaults={"name": "PQR Institute", "slug": "pqr"}
-        )
-        Domain.objects.get_or_create(domain="pqr.localhost", tenant=pqr, defaults={"is_primary": True})
-        Subscription.objects.get_or_create(
-            client=pqr,
-            defaults={
-                "plan": premium,
-                "status": Subscription.Status.ACTIVE,
-                "start_date": today - timedelta(days=5),
-                "end_date": today + timedelta(days=360),
-            },
-        )
-        self._seed_tenant("pqr", library=True, hostel=True, hr=True)
+            gaya, _ = Branch.objects.get_or_create(code="gaya", defaults={"name": "Gaya campus"})
+            for branch in (patna, gaya):
+                self._staff_users(branch)
+                self._people(branch)
+                self._library(branch)
+                self._hostel(branch)
 
         self.stdout.write(self.style.SUCCESS(
-            "Seeded abc (Basic: library), xyz (Standard: library+hostel+attendance), "
-            "pqr (Premium: library+hostel+attendance+hr+payroll).\n"
-            f"Staff login per tenant: staff@<schema>.eraj.test / {DEMO_PASSWORD}"
+            "Seeded abc (Basic, 1 branch) and pqr (Premium, branches patna + gaya).\n"
+            f"Password for every demo user: {DEMO_PASSWORD}\n"
+            "  owner@abc.eraj.test, owner@pqr.eraj.test (Admin + Group admin)\n"
+            "  <role>.<branch>@pqr.eraj.test for librarian/accountant/teacher/warden, e.g. librarian.patna@pqr.eraj.test"
         ))
 
-    def _seed_tenant(self, schema_name: str, *, library: bool, hostel: bool, hr: bool):
-        from apps.hostel.models import Room
-        from apps.hr.models import Department, Employee
-        from apps.library.models import Book
+    @staticmethod
+    def _staff_users(branch):
+        from apps.org.models import Role, RoleAssignment
 
-        with schema_context(schema_name):
+        for role in (Role.LIBRARIAN, Role.ACCOUNTANT, Role.TEACHER, Role.WARDEN):
             user, created = User.objects.get_or_create(
-                email=f"staff@{schema_name}.eraj.test",
-                defaults={"first_name": "Demo", "last_name": "Staff", "role": "staff"},
+                email=f"{role}.{branch.code}@pqr.eraj.test",
+                defaults={"first_name": role.label, "last_name": branch.name},
             )
             if created:
                 user.set_password(DEMO_PASSWORD)
                 user.save(update_fields=["password"])
+            RoleAssignment.objects.get_or_create(user=user, role=role, branch=branch)
 
-            if library:
-                for title, author in [
-                    ("Django for Professionals", "William S. Vincent"),
-                    ("Fluent Python", "Luciano Ramalho"),
-                    ("The Pragmatic Programmer", "Hunt & Thomas"),
-                ]:
-                    Book.objects.get_or_create(
-                        isbn=f"{schema_name}-{title[:8].strip().lower().replace(' ', '')}",
-                        defaults={"title": title, "author": author, "copies_total": 3, "copies_available": 3},
+    @staticmethod
+    def _people(branch):
+        from apps.people.models import (
+            AcademicYear, Department, Enrollment, Guardian, Program, Section, Staff, Student,
+            StudentGuardian, Subject,
+        )
+
+        year = AcademicYear.objects.get(is_current=True)
+        dept, _ = Department.objects.get_or_create(branch=branch, name="Teaching")
+        teacher, _ = Staff.objects.get_or_create(
+            branch=branch, employee_code=f"{branch.code.upper()}-T001",
+            defaults={"full_name": "Sunita Kumari", "designation": "TGT Mathematics", "department": dept},
+        )
+        for seq, (code, name) in enumerate([("C6", "Class 6"), ("C7", "Class 7")], start=6):
+            program, _ = Program.objects.get_or_create(
+                branch=branch, code=code, defaults={"name": name, "sequence": seq}
+            )
+            section, _ = Section.objects.get_or_create(
+                branch=branch, academic_year=year, program=program, term=None, name="A",
+                defaults={"class_teacher": teacher},
+            )
+            for subj in ("Mathematics", "Science", "Hindi", "English"):
+                Subject.objects.get_or_create(
+                    branch=branch, code=f"{code}-{subj[:3].upper()}", defaults={"name": subj, "program": program}
+                )
+            for i in range(1, 6):
+                adm = f"{branch.code.upper()}-{code}-{i:03d}"
+                student, created = Student.objects.get_or_create(
+                    branch=branch, admission_no=adm,
+                    defaults={"full_name": f"Student {code}-{i}", "gender": "male" if i % 2 else "female"},
+                )
+                if created:
+                    Enrollment.objects.create(
+                        branch=branch, student=student, academic_year=year, program=program,
+                        section=section, roll_no=str(i),
+                    )
+                    guardian = Guardian.objects.create(
+                        branch=branch, full_name=f"Guardian of {student.full_name}", phone=f"98000{seq}{i:04d}"
+                    )
+                    StudentGuardian.objects.create(
+                        branch=branch, student=student, guardian=guardian, relation="father", is_primary=True
                     )
 
-            if hostel:
-                for number, capacity in [("A-101", 2), ("A-102", 2), ("B-201", 4)]:
-                    Room.objects.get_or_create(number=number, defaults={"capacity": capacity})
+    @staticmethod
+    def _library(branch):
+        from apps.library.models import Book
 
-            if hr:
-                dept, _ = Department.objects.get_or_create(name="Administration")
-                Employee.objects.get_or_create(
-                    email=f"admin.staff@{schema_name}.eraj.test",
-                    defaults={"full_name": "Admin Staff", "designation": "Administrator", "department": dept},
-                )
+        for title, author in [
+            ("Django for Professionals", "William S. Vincent"),
+            ("Fluent Python", "Luciano Ramalho"),
+            ("The Pragmatic Programmer", "Hunt & Thomas"),
+        ]:
+            Book.objects.get_or_create(
+                branch=branch,
+                isbn=f"{branch.code}-{title[:8].strip().lower().replace(' ', '')}",
+                defaults={"title": title, "author": author, "copies_total": 3, "copies_available": 3},
+            )
+
+    @staticmethod
+    def _hostel(branch):
+        from apps.hostel.models import Room
+
+        for number, capacity in [("A-101", 2), ("A-102", 2), ("B-201", 4)]:
+            Room.objects.get_or_create(branch=branch, number=number, defaults={"capacity": capacity})

@@ -1,44 +1,39 @@
 """
-Attendance module. TENANT_APPS — one copy per tenant schema.
+Attendance module. TENANT app; rows are branch-owned (ADR-001) and point at the
+shared `people.Student` (ADR-002).
 
-`Student` is kept local to this app rather than shared with other modules
-that also need a "person" concept (Fees, Exam) — see
-docs/REQUIREMENTS_GAP_ANALYSIS.md's modeling note: independent per-module
-records over one cross-module registry, matching the Library/Hostel pattern
-already built (Member, Resident are likewise module-local).
+`period` is NULL for once-a-day marking (schools) and holds the lecture number
+for per-lecture marking (colleges/coaching); `subject` is set with it.
 """
 from django.db import models
 
-from apps.core.mixins import SoftDelete, TimeStamped
+from apps.core.mixins import TimeStamped
+from apps.org.models import BranchOwned
 
 
-class Student(TimeStamped, SoftDelete):
-    full_name = models.CharField(max_length=255)
-    roll_no = models.CharField(max_length=50, unique=True)
-    class_section = models.CharField(max_length=50, blank=True)
-
-    class Meta:
-        ordering = ("full_name",)
-
-    def __str__(self) -> str:
-        return f"{self.full_name} ({self.roll_no})"
-
-
-class AttendanceRecord(TimeStamped):
+class AttendanceRecord(TimeStamped, BranchOwned):
     class Status(models.TextChoices):
         PRESENT = "present", "Present"
         ABSENT = "absent", "Absent"
         LEAVE = "leave", "Leave"
+        LATE = "late", "Late"
+        HALF_DAY = "half_day", "Half-day"
 
-    student = models.ForeignKey(Student, on_delete=models.PROTECT, related_name="attendance_records")
-    date = models.DateField()
+    student = models.ForeignKey("people.Student", on_delete=models.PROTECT, related_name="attendance_records")
+    date = models.DateField(db_index=True)
+    period = models.PositiveSmallIntegerField(null=True, blank=True)
+    subject = models.ForeignKey("people.Subject", null=True, blank=True, on_delete=models.PROTECT, related_name="+")
     status = models.CharField(max_length=10, choices=Status.choices, default=Status.PRESENT)
     marked_by = models.CharField(max_length=255, blank=True)
 
     class Meta:
-        ordering = ("-date",)
+        ordering = ("-date", "period")
         constraints = [
-            models.UniqueConstraint(fields=["student", "date"], name="attendance_one_record_per_student_per_day"),
+            models.UniqueConstraint(
+                fields=["student", "date", "period"],
+                nulls_distinct=False,
+                name="attendance_one_record_per_student_day_period",
+            ),
         ]
 
     def __str__(self) -> str:

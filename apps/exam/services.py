@@ -12,7 +12,7 @@ def record_result(*, student, subject, exam_name, marks_obtained, max_marks=100)
         student=student,
         subject=subject,
         exam_name=exam_name,
-        defaults={"marks_obtained": marks_obtained, "max_marks": max_marks},
+        defaults={"marks_obtained": marks_obtained, "max_marks": max_marks, "branch": student.branch},
     )
     record(
         "exam.result_recorded",
@@ -22,7 +22,7 @@ def record_result(*, student, subject, exam_name, marks_obtained, max_marks=100)
 
 
 def student_report(*, student) -> dict:
-    results = list(student.results.select_related("subject"))
+    results = list(student.exam_results.select_related("subject"))
     total_obtained = sum(float(r.marks_obtained) for r in results)
     total_max = sum(float(r.max_marks) for r in results)
     return {

@@ -1,29 +1,30 @@
 """
-Payroll module. TENANT_APPS. Depends on apps.hr's Employee.
+Payroll module. TENANT app; branch-owned (ADR-001), paying `people.Staff`
+(ADR-002).
 
-NOT statutory-compliant payroll — flat basic + allowances - deductions, no
-PF/ESI/TDS/tax-slab logic. Real payroll needs a compliance review per
-jurisdiction before this touches real salaries.
+NOT statutory-compliant yet — flat basic + allowances - deductions. M4 replaces
+this with pay rule sets (central + Bihar), pay matrix, DA arrears and
+PF/NPS/ESI/PT/TDS.
 """
 from django.db import models
 
 from apps.core.mixins import TimeStamped
-from apps.hr.models import Employee
+from apps.org.models import BranchOwned
 
 
-class Payslip(TimeStamped):
-    employee = models.ForeignKey(Employee, on_delete=models.PROTECT, related_name="payslips")
+class Payslip(TimeStamped, BranchOwned):
+    staff = models.ForeignKey("people.Staff", on_delete=models.PROTECT, related_name="payslips")
     period = models.DateField(help_text="First of the month this payslip covers")
-    basic_salary = models.DecimalField(max_digits=10, decimal_places=2)
-    allowances = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    deductions = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    net_pay = models.DecimalField(max_digits=10, decimal_places=2)
+    basic_salary = models.DecimalField(max_digits=12, decimal_places=2)
+    allowances = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    deductions = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    net_pay = models.DecimalField(max_digits=12, decimal_places=2)
 
     class Meta:
         ordering = ("-period",)
         constraints = [
-            models.UniqueConstraint(fields=["employee", "period"], name="payroll_one_payslip_per_employee_per_period"),
+            models.UniqueConstraint(fields=["staff", "period"], name="payroll_one_payslip_per_staff_per_period"),
         ]
 
     def __str__(self) -> str:
-        return f"{self.employee} — {self.period:%Y-%m}"
+        return f"{self.staff} — {self.period:%Y-%m}"
