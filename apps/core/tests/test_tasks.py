@@ -40,7 +40,7 @@ class TestRecomputeSubscriptionStatuses:
         serving cached "active" responses until the TTL happens to expire.
         """
         tenant = Client.objects.create(schema_name="cache_test_tenant", name="Cache Test Tenant", slug="cache-test-tenant")
-        sub = Subscription.objects.create(
+        Subscription.objects.create(
             client=tenant,
             plan=plan,
             status=Subscription.Status.ACTIVE,

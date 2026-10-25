@@ -266,7 +266,8 @@ class FeesRulesTest(FeesBase):
 
 class FeesReportTest(FeesBase):
     def test_outstanding_by_class_report(self):
-        a, b = self.enroll(), self.enroll()
+        self.enroll()
+        b = self.enroll()
         services.collect(student=b, mode="cash", amount=D("12000"), received_by="x")
         rows = self.api(self.accountant).get("/api/fees/reports/outstanding/").json()
         self.assertEqual(len(rows), 1)
