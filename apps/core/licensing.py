@@ -8,10 +8,16 @@ from django.db import connection
 from django_tenants.utils import get_public_schema_name
 
 from apps.core.middleware import get_subscription_state
+from apps.core.models import Client
 
 
 def tenant_has_module(code: str) -> bool:
-    tenant = getattr(connection, "tenant", None)
-    if tenant is None or tenant.schema_name == get_public_schema_name():
+    schema = getattr(connection, "schema_name", None)
+    if not schema or schema == get_public_schema_name():
         return False
+    tenant = getattr(connection, "tenant", None)
+    if not isinstance(tenant, Client):  # schema_context() / Celery: a FakeTenant
+        tenant = Client.objects.filter(schema_name=schema).first()
+        if tenant is None:
+            return False
     return code in get_subscription_state(tenant)["modules"]

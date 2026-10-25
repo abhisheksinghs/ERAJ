@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="{% if hi %}hi{% else %}en{% endif %}">
+<head>
+<meta charset="utf-8">
+<style>
+  @page { size: A4 landscape; margin: 12mm; }
+  body { font-family: "Noto Sans", "Noto Sans Devanagari", sans-serif; font-size: 11pt; color: #1f2430; }
+  h1 { font-size: 18pt; margin: 0; color: #1e2761; }
+  .sub { color: #5b6475; margin: 2pt 0 10pt; }
+  table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+  th, td { border: 0.75pt solid #c9cedb; padding: 6pt; vertical-align: top; }
+  th { background: #1e2761; color: #fff; text-align: left; }
+  td.day { font-weight: 700; background: #f1f3f8; width: 14%; }
+  .nv { color: #b42318; font-size: 8pt; font-weight: 700; }
+  .foot { margin-top: 8pt; color: #5b6475; font-size: 9pt; display: flex; justify-content: space-between; }
+</style>
+</head>
+<body>
+<h1>{% if hi and mess.name_hi %}{{ mess.name_hi }}{% else %}{{ mess.name }}{% endif %}</h1>
+<div class="sub">{{ branch.name }}{% if mess.contractor_name %} · {% if hi %}ठेकेदार{% else %}Contractor{% endif %}: {{ mess.contractor_name }}{% endif %} · {% if hi %}साप्ताहिक मेनू{% else %}Weekly menu{% endif %}</div>
+<table>
+  <thead><tr><th>{% if hi %}दिन{% else %}Day{% endif %}</th>{% for m in meals %}<th>{{ m }}</th>{% endfor %}</tr></thead>
+  <tbody>
+  {% for row in rows %}
+    <tr><td class="day">{{ row.day }}</td>{% for c in row.cells %}<td>{{ c.text|default:"—" }}{% if c.text and not c.veg %} <span class="nv">{% if hi %}मांसाहार{% else %}NON-VEG{% endif %}</span>{% endif %}</td>{% endfor %}</tr>
+  {% endfor %}
+  </tbody>
+</table>
+<div class="foot"><span>{% if hi %}मेनू में बदलाव वार्डन की अनुमति से{% else %}Menu changes only with the warden's approval{% endif %}</span><span>{{ printed_at|date:"d-m-Y" }}</span></div>
+</body>
+</html>

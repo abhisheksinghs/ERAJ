@@ -228,6 +228,16 @@ SPECTACULAR_SETTINGS = {
     "TITLE": "Eraj API",
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
+    # Same field name, different choices in different modules: name them.
+    "ENUM_NAME_OVERRIDES": {
+        "RoomStatusEnum": "apps.hostel.models.Room.Status",
+        "HostelGenderEnum": "apps.hostel.models.Gender",
+        "MessPlanEnum": "apps.hostel.models.MessMember.Plan",
+        "OutpassStatusEnum": "apps.hostel.models.Outpass.Status",
+        "VisitStatusEnum": "apps.hostel.models.Visit.Status",
+        "WaitlistStatusEnum": "apps.hostel.models.Waitlist.Status",
+        "TicketStatusEnum": "apps.hostel.models.MaintenanceTicket.Status",
+    },
 }
 
 # --- Library module -------------------------------------------------------

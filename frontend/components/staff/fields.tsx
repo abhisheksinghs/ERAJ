@@ -17,28 +17,31 @@ export function RelationSelect({
   value,
   onChange,
   placeholder,
+  multiple,
 }: {
   resource: string;
   label: string;
   search?: boolean;
-  value?: number | null;
-  onChange?: (v: number | null) => void;
+  value?: number | number[] | null;
+  onChange?: (v: number | number[] | null) => void;
   placeholder?: string;
+  multiple?: boolean;
 }) {
   const { selectProps } = useSelect({
     resource,
     optionLabel: label as never,
     optionValue: "id" as never,
-    defaultValue: value ?? undefined,
+    defaultValue: (value ?? undefined) as never,
     pagination: { pageSize: 50, mode: "server" },
     onSearch: search ? (v) => [{ field: "q", operator: "contains", value: v }] : undefined,
     debounce: 300,
   });
   return (
     <Select
-      {...(selectProps as unknown as SelectProps<number>)}
+      {...(selectProps as unknown as SelectProps<number | number[]>)}
+      mode={multiple ? "multiple" : undefined}
       value={value ?? undefined}
-      onChange={(v) => onChange?.(v ?? null)}
+      onChange={(v) => onChange?.((v as number | number[] | undefined) ?? (multiple ? [] : null))}
       allowClear
       showSearch={Boolean(search) || selectProps.showSearch}
       filterOption={search ? false : (input, option) => String(option?.label ?? "").toLowerCase().includes(input.toLowerCase())}
@@ -130,8 +133,22 @@ export function FormField({ field, lang, compact, hideLabel }: { field: FieldDef
       );
     case "select":
     case "multiselect":
+      if (field.relation) {
+        return (
+          <Form.Item {...common}>
+            <RelationSelect resource={field.relation.resource} label={field.relation.label} search={field.relation.search}
+              multiple={field.type === "multiselect"} />
+          </Form.Item>
+        );
+      }
       return (
-        <Form.Item {...common}>
+        <Form.Item
+          {...common}
+          // API integers (e.g. weekday 0–6) against string option values
+          getValueProps={(v: unknown) => ({
+            value: v === null || v === undefined ? v : Array.isArray(v) ? v.map(String) : String(v),
+          })}
+        >
           <Select
             mode={field.type === "multiselect" ? "multiple" : undefined}
             allowClear
@@ -188,7 +205,7 @@ export function renderCell(col: ColumnDef, value: unknown, lang: Lang) {
     case "bool":
       return value ? <Tag color="green">✓</Tag> : <Tag>—</Tag>;
     case "tag": {
-      const opt = col.options?.find((o) => o.value === value);
+      const opt = col.options?.find((o) => o.value === String(value));
       return <Tag>{opt ? tr(opt.label, lang) : String(value)}</Tag>;
     }
     default:

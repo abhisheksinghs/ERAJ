@@ -195,7 +195,45 @@ class Command(BaseCommand):
 
     @staticmethod
     def _hostel(branch):
-        from apps.hostel.models import Room
+        """Two blocks, a hostel fee, a contractor-run mess with rates and a menu,
+        and two residents (so the Fees account shows hostel + mess charges)."""
+        from apps.hostel import services
+        from apps.hostel.models import Block, HostelFeeRule, MenuItem, Mess, MessMealRate, Room
+        from apps.people.models import Student
 
-        for number, capacity in [("A-101", 2), ("A-102", 2), ("B-201", 4)]:
-            Room.objects.get_or_create(branch=branch, number=number, defaults={"capacity": capacity})
+        boys, _ = Block.objects.get_or_create(branch=branch, code="BH", defaults={"name": "Boys hostel", "gender": "male"})
+        girls, _ = Block.objects.get_or_create(branch=branch, code="GH", defaults={"name": "Girls hostel", "gender": "female"})
+        for block in (boys, girls):
+            for number, capacity, kind in [("101", 2, "double"), ("102", 2, "double"), ("201", 4, "dorm")]:
+                Room.objects.get_or_create(branch=branch, block=block, number=number,
+                                           defaults={"capacity": capacity, "room_type": kind, "floor": int(number[0]) - 1})
+        HostelFeeRule.objects.get_or_create(branch=branch, block=None, room_type="", defaults={"monthly_amount": 2500})
+
+        mess, created = Mess.objects.get_or_create(
+            branch=branch, name="Central mess",
+            defaults={"name_hi": "केंद्रीय मेस", "contractor_name": "Annapurna Caterers", "contractor_phone": "9800099000",
+                      "monthly_charge": 3000, "per_day_rate": 110, "rebate_min_days": 5, "rebate_per_day": 90,
+                      "guest_meal_rate": 60},
+        )
+        if created:
+            mess.blocks.set([boys, girls])
+            for meal, rate in [("breakfast", 25), ("lunch", 45), ("snacks", 15), ("dinner", 45)]:
+                MessMealRate.objects.create(mess=mess, meal=meal, rate=rate)
+            week = [
+                ("Poha, tea", "Rice, dal, aloo gobhi, roti", "Samosa, tea", "Roti, rajma, rice"),
+                ("Idli, sambar", "Rice, dal, bhindi, roti", "Biscuits, tea", "Roti, chicken curry, rice"),
+                ("Paratha, curd", "Rice, kadhi, roti, salad", "Chana chaat", "Roti, paneer, rice"),
+                ("Upma, tea", "Rice, dal, lauki, roti", "Pakora, tea", "Roti, egg curry, rice"),
+                ("Chura, dahi", "Rice, dal, aloo bhujia, roti", "Bread, tea", "Roti, mix veg, rice"),
+                ("Puri, sabzi", "Khichdi, papad, chokha", "Litti, tea", "Roti, fish curry, rice"),
+                ("Aloo paratha", "Veg biryani, raita", "Jalebi", "Roti, dal makhani, kheer"),
+            ]
+            for day, meals in enumerate(week):
+                for meal, items in zip(("breakfast", "lunch", "snacks", "dinner"), meals):
+                    nonveg = any(w in items for w in ("chicken", "egg", "fish"))
+                    MenuItem.objects.create(branch=branch, mess=mess, day=day, meal=meal, items=items, is_veg=not nonveg)
+
+        for adm, block in ((f"{branch.code.upper()}-C7-001", boys), (f"{branch.code.upper()}-C7-002", girls)):
+            student = Student.objects.filter(branch=branch, admission_no=adm).first()
+            if student and not student.hostel_allocations.exists():
+                services.allocate(student=student, room=Room.objects.get(block=block, number="101"))

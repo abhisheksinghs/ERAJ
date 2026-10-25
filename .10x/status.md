@@ -29,7 +29,7 @@
 |---|---|---|---|
 | M0 | 25 Oct | Dep fixes, Next upgrade, Refine shell builds | Done 25 Oct — Next 16.4.3 + React 19 + Refine 5/AntD 5 installed, `npm audit` 0, `next build` ok; psycopg2 2.9.13, WeasyPrint 70 (Hindi PDF verified), openpyxl |
 | M1 | 27 Oct | org, people, RBAC, branch mixin, fresh migrations, staff shell | Done 25 Oct — backend 63 Django + 23 pytest green; frontend `next build` ok; browser walkthrough 14/14 (e2e/smoke-m1.mjs) |
-| M2 | 30 Oct | Fees ledger, Library, Hostel + Mess + visitors | Next |
+| M2 | 30 Oct | Fees ledger, Library, Hostel + Mess + visitors | Built 25 Oct (ahead of 30 Oct) — 112 Django + 26 pytest green, CI green; walkthroughs M1 14/14, Fees 19/19, Hostel 12/12. Open: provisions + cost-per-head wait for Inventory (M5); parent alerts log-only until M6 |
 | M3 | 2 Nov | Attendance, Exam, Timetable | Not started |
 | M4 | 5 Nov | HR, Payroll | Not started |
 | M5 | 7 Nov | Transport, Inventory | Not started |
@@ -38,6 +38,7 @@
 | M8 | 11 Nov | Scenario run on staging, QA + security reports | Not started |
 
 ## Known defects found in discovery
-- `apps/fees` models drift from migration `0001` (`term`, `payer_reference`) — `makemigrations --check` fails
+- ~~`apps/fees` models drift from migration `0001`~~ fixed M1 (migrations regenerated; drift check now blocking in CI)
+- ~~CI red since 1 Sept: blocking ruff F401/F841 stopped the backend job before tests; test step skipped org/people/fees~~ fixed 25 Oct (`4ff2028`)
 - ~~psycopg2 2.9.9 on Py 3.13~~ fixed M0 · ~~Next 14 advisories~~ fixed M0 · ~~tsbuildinfo~~ fixed M0
-- Test suites pass per module (17/17) but error when Django test modules run in one invocation: public-schema `Module`/`Client` fixtures collide (`core_module_code_key`). Pre-existing; fix in M1 fixture rework.
+- ~~Django test modules collide in one invocation~~ fixed M1. Note: run module tests with `manage.py test` and the platform suite with `pytest` (pytest.ini pins `apps/core/tests`); mixing both in one pytest process leaks tenant state.
