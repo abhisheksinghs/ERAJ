@@ -20,7 +20,9 @@
 | Strategy | Done | cto/eraj-v1.md, product-manager/eraj-v1.md |
 | Design (ADRs) | Done | ADR-001 … ADR-006 |
 | Planning | Done | engineering-manager/eraj-v1.md (M0–M8), senior-engineer/eraj-v1.md |
-| Implementation | In progress | M0 started 2026-10-25 |
+| Implementation | In progress | M0 done 2026-10-25; M1 in progress |
+| Verification | Not started | |
+| Delivery | Not started | |
 
 ## Milestones
 | ID | Due | Scope | State |
@@ -34,8 +36,6 @@
 | M6 | 9 Nov | Alerts, Portal, Learning | Not started |
 | M7 | 10 Nov | Hindi pass, import templates, staging deploy | Not started |
 | M8 | 11 Nov | Scenario run on staging, QA + security reports | Not started |
-| Verification | Not started | |
-| Delivery | Not started | |
 
 ## Known defects found in discovery
 - `apps/fees` models drift from migration `0001` (`term`, `payer_reference`) — `makemigrations --check` fails
