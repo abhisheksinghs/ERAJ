@@ -30,7 +30,7 @@
 | M0 | 25 Oct | Dep fixes, Next upgrade, Refine shell builds | Done 25 Oct — Next 16.4.3 + React 19 + Refine 5/AntD 5 installed, `npm audit` 0, `next build` ok; psycopg2 2.9.13, WeasyPrint 70 (Hindi PDF verified), openpyxl |
 | M1 | 27 Oct | org, people, RBAC, branch mixin, fresh migrations, staff shell | Done 25 Oct — backend 63 Django + 23 pytest green; frontend `next build` ok; browser walkthrough 14/14 (e2e/smoke-m1.mjs) |
 | M2 | 30 Oct | Fees ledger, Library, Hostel + Mess + visitors | Built 25 Oct (ahead of 30 Oct) — 112 Django + 26 pytest green, CI green; walkthroughs M1 14/14, Fees 19/19, Hostel 12/12. Open: provisions + cost-per-head wait for Inventory (M5); parent alerts log-only until M6 |
-| M3 | 2 Nov | Attendance, Exam, Timetable | In progress 25 Oct — Attendance + Exam built (ADR-008): 124 Django tests, walkthrough e2e/smoke-m3.mjs 14/14. Timetable next |
+| M3 | 2 Nov | Attendance, Exam, Timetable | Built 25 Oct (ahead of 2 Nov) — ADR-008; 131 Django + 26 pytest green; walkthroughs M3 14/14, Timetable 10/10 (all five e2e green). Open: device brands/models to confirm with client; HR leave → substitution list arrives with M4 |
 | M4 | 5 Nov | HR, Payroll | Not started |
 | M5 | 7 Nov | Transport, Inventory | Not started |
 | M6 | 9 Nov | Alerts, Portal, Learning | Not started |

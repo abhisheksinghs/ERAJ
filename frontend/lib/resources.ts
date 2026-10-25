@@ -144,6 +144,7 @@ export const MODULES: ModuleDef[] = [
   { key: "hostel", label: t("Hostel & Mess", "छात्रावास एवं मेस"), icon: "HomeOutlined" },
   { key: "attendance", label: t("Attendance", "उपस्थिति"), icon: "CheckSquareOutlined" },
   { key: "exam", label: t("Exam", "परीक्षा"), icon: "FileDoneOutlined" },
+  { key: "timetable", label: t("Timetable", "समय-सारणी"), icon: "ScheduleOutlined" },
   { key: "fees", label: t("Fees", "शुल्क"), icon: "WalletOutlined" },
   { key: "payroll", label: t("Payroll", "वेतन"), icon: "BankOutlined" },
   { key: "transport", label: t("Transport", "परिवहन"), icon: "CarOutlined" },
@@ -1021,6 +1022,68 @@ export const RESOURCES: ResourceDef[] = [
     ],
   },
 
+  // ------------------------------------------------------------ timetable
+  {
+    name: "timetable/schedules", module: "timetable", label: t("Bell schedules", "घंटी समय-सारणी"), perm: "timetable.schedule",
+    canCreate: true, canEdit: true, canDelete: true, exportable: false,
+    columns: [
+      { key: "name", label: t("Schedule", "समय-सारणी") },
+      { key: "is_default", label: t("Default", "डिफ़ॉल्ट"), type: "bool" },
+    ],
+    fields: [
+      { name: "name", label: t("Name (e.g. Summer, Senior wing)", "नाम"), type: "text", required: true },
+      { name: "is_default", label: t("Default for sections not listed below", "डिफ़ॉल्ट"), type: "boolean" },
+      { name: "sections", label: t("Sections on this schedule", "इस समय-सारणी के अनुभाग"), type: "multiselect", relation: SECTION_REL },
+      { name: "slots", label: t("Periods and breaks", "कालांश एवं अवकाश"), type: "rows", required: true, addLabel: t("Add period", "कालांश जोड़ें"), rowFields: [
+        { name: "number", label: t("No.", "क्रम"), type: "number", required: true },
+        { name: "label", label: t("Label", "नाम"), type: "text", required: true },
+        { name: "start", label: t("Start (HH:MM)", "आरंभ"), type: "text", required: true },
+        { name: "end", label: t("End (HH:MM)", "समाप्ति"), type: "text", required: true },
+        { name: "days", label: t("Days (0=Mon…5=Sat)", "दिन (0=सोम…5=शनि)"), type: "text", required: true },
+        { name: "is_break", label: t("Break", "अवकाश"), type: "boolean" },
+      ] },
+    ],
+  },
+  {
+    name: "timetable/rooms", module: "timetable", label: t("Rooms", "कक्ष"), perm: "timetable.room",
+    searchable: true, canCreate: true, canEdit: true, canDelete: true,
+    columns: [
+      { key: "name", label: t("Room", "कक्ष") },
+      { key: "kind", label: t("Type", "प्रकार") },
+      { key: "capacity", label: t("Capacity", "क्षमता"), type: "number" },
+    ],
+    fields: [
+      { name: "name", label: t("Room", "कक्ष"), type: "text", required: true },
+      { name: "kind", label: t("Type (classroom, lab …)", "प्रकार"), type: "text" },
+      { name: "capacity", label: t("Capacity", "क्षमता"), type: "number" },
+    ],
+  },
+  {
+    name: "timetable/loads", module: "timetable", label: t("Teacher period limits", "शिक्षक कालांश सीमा"), perm: "timetable.load",
+    canCreate: true, canEdit: true, canDelete: true,
+    columns: [
+      { key: "staff_name", label: t("Teacher", "शिक्षक") },
+      { key: "max_periods_per_week", label: t("Max periods / week", "अधिकतम कालांश / सप्ताह"), type: "number" },
+    ],
+    fields: [
+      { name: "staff", label: t("Teacher", "शिक्षक"), type: "relation", relation: STAFF_REL, required: true },
+      { name: "max_periods_per_week", label: t("Max periods per week (default 36)", "अधिकतम कालांश प्रति सप्ताह"), type: "number", required: true },
+    ],
+  },
+  {
+    name: "timetable/substitutions", module: "timetable", label: t("Substitution register", "प्रतिस्थापन रजिस्टर"), perm: "timetable.substitution",
+    canDelete: true, deleteLabel: t("Cancel", "रद्द करें"), defaultSort: { field: "date", order: "desc" },
+    columns: [
+      { key: "date", label: t("Date", "तिथि"), type: "date" },
+      { key: "section_name", label: t("Class", "कक्षा") },
+      { key: "slot", label: t("Period", "कालांश") },
+      { key: "subject", label: t("Subject", "विषय") },
+      { key: "absent_name", label: t("Absent", "अनुपस्थित") },
+      { key: "substitute_name", label: t("Substitute", "प्रतिस्थापक") },
+      { key: "confirmed_by", label: t("Arranged by", "व्यवस्थापक") },
+    ],
+  },
+
   // ------------------------------------------------------------ fees
   {
     name: "fees/accounts", module: "fees", label: t("Dues & defaulters", "बकाया एवं चूककर्ता"), perm: "fees.account",
@@ -1362,6 +1425,9 @@ export const RESOURCES: ResourceDef[] = [
 ];
 
 export const PAGES: PageDef[] = [
+  { name: "timetable/builder", module: "timetable", label: t("Build timetable", "समय-सारणी बनाएँ"), perm: "timetable.entry.manage", path: "/timetable/builder" },
+  { name: "timetable/view", module: "timetable", label: t("View & print", "देखें एवं प्रिंट"), perm: "timetable.entry.view", path: "/timetable/view" },
+  { name: "timetable/cover", module: "timetable", label: t("Substitutes today", "आज के प्रतिस्थापक"), perm: "timetable.substitution.manage", path: "/timetable/substitution" },
   { name: "attendance/mark", module: "attendance", label: t("Mark attendance", "उपस्थिति लगाएँ"), perm: "attendance.record.mark", path: "/attendance/mark" },
   { name: "attendance/reports-page", module: "attendance", label: t("Attendance reports", "उपस्थिति रिपोर्ट"), perm: "attendance.report.view", path: "/attendance/reports" },
   { name: "exam/marks-page", module: "exam", label: t("Enter marks", "अंक दर्ज करें"), perm: "exam.marks.enter", path: "/exam/marks" },

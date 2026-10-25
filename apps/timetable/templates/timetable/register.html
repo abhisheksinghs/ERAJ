@@ -1,0 +1,20 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<style>
+  @page { size: A4; margin: 12mm; }
+  body { font-family: "Noto Sans", "Noto Sans Devanagari", sans-serif; font-size: 9pt; color: #1f2430; }
+  h1 { font-size: 14pt; margin: 0; color: #1e2761; } h2 { font-size: 11pt; color: #1e2761; margin: 12pt 0 4pt; }
+  .sub { color: #5b6475; margin: 2pt 0 8pt; }
+  table { width: 100%; border-collapse: collapse; } th, td { border: 0.6pt solid #c9cedb; padding: 3pt 5pt; text-align: left; }
+  th { background: #f1f3f8; }
+</style></head><body>
+<h1>{{ branch.name }} — Substitution register</h1>
+<div class="sub">{{ d.from|date:"d-m-Y" }} to {{ d.to|date:"d-m-Y" }}</div>
+<h2>Periods covered per teacher</h2>
+<table><thead><tr><th>Teacher</th><th>Periods covered</th></tr></thead><tbody>
+{% for r in d.per_teacher %}<tr><td>{{ r.name }}</td><td>{{ r.periods }}</td></tr>{% empty %}<tr><td colspan="2">None</td></tr>{% endfor %}
+</tbody></table>
+<h2>Register</h2>
+<table><thead><tr><th>Date</th><th>Class</th><th>Period</th><th>Subject</th><th>Absent</th><th>Substitute</th></tr></thead><tbody>
+{% for r in d.rows %}<tr><td>{{ r.date|date:"d-m-Y" }}</td><td>{{ r.section_name }}</td><td>{{ r.slot }}</td><td>{{ r.subject }}</td><td>{{ r.absent }}</td><td>{{ r.substitute }}</td></tr>{% endfor %}
+</tbody></table>
+</body></html>

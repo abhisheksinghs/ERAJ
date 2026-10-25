@@ -84,6 +84,7 @@ class Command(BaseCommand):
                 self._hostel(branch)
                 self._fees(branch)
                 self._academics(branch)
+                self._timetable(branch)
 
         self.stdout.write(self.style.SUCCESS(
             "Seeded abc (Basic, 1 branch) and pqr (Premium, branches patna + gaya).\n"
@@ -221,6 +222,59 @@ class Command(BaseCommand):
                     else:
                         rows.append({"student": s.pk, "theory": Decimal(rng.randint(28, 78)), "practical": Decimal(rng.randint(12, 20))})
                 exam_services.save_marks(exam_subject=es, section=section, rows=rows, by="seed")
+
+    @staticmethod
+    def _timetable(branch):
+        """Four more teachers, a full teaching allocation, a Mon–Sat bell schedule,
+        rooms, and a week's timetable for both sections."""
+        from datetime import time
+
+        from apps.people.models import AcademicYear, Department, Section, Staff, Subject, TeachingAssignment
+        from apps.timetable import services as tt
+        from apps.timetable.models import BellSchedule, PeriodSlot, Room, TimetableEntry
+
+        year = AcademicYear.objects.get(is_current=True)
+        dept = Department.objects.get(branch=branch, name="Teaching")
+        code = branch.code.upper()
+        staff = {"MAT": Staff.objects.get(branch=branch, employee_code=f"{code}-T001")}
+        for n, (name, subj) in enumerate([("Rakesh Prasad", "SCI"), ("Meena Kumari", "HIN"), ("Arvind Singh", "ENG"),
+                                          ("Pooja Sinha", "MAT")], start=2):
+            staff.setdefault(subj, None)
+            obj, _ = Staff.objects.get_or_create(branch=branch, employee_code=f"{code}-T00{n}",
+                                                 defaults={"full_name": name, "designation": "TGT", "department": dept})
+            if subj == "MAT":
+                staff["MAT2"] = obj
+            else:
+                staff[subj] = obj
+        schedule, created = BellSchedule.objects.get_or_create(branch=branch, name="Regular (Mon–Sat)", defaults={"is_default": True})
+        if created:
+            for n, (a, b, label, brk) in enumerate([
+                ("08:00", "08:40", "Period 1", False), ("08:40", "09:20", "Period 2", False), ("09:20", "10:00", "Period 3", False),
+                ("10:00", "10:20", "Break", True), ("10:20", "11:00", "Period 4", False), ("11:00", "11:40", "Period 5", False),
+                ("11:40", "12:20", "Period 6", False)], start=1):
+                PeriodSlot.objects.create(schedule=schedule, number=n, label=label, start=time.fromisoformat(a),
+                                          end=time.fromisoformat(b), is_break=brk, days="0,1,2,3,4,5")
+        for name in ("Room 6A", "Room 7A", "Science lab"):
+            Room.objects.get_or_create(branch=branch, name=name)
+        sections = list(Section.objects.filter(branch=branch, academic_year=year).order_by("program__sequence"))
+        if TimetableEntry.objects.filter(section__in=sections).exists():
+            return
+        slots = list(schedule.slots.filter(is_break=False).order_by("number"))
+        for si, section in enumerate(sections):
+            assign = {}
+            for subj_code, teacher_key in (("MAT", "MAT" if si == 0 else "MAT2"), ("SCI", "SCI"), ("HIN", "HIN"), ("ENG", "ENG")):
+                subject = Subject.objects.get(branch=branch, code=f"{section.program.code}-{subj_code}")
+                assign[subj_code], _ = TeachingAssignment.objects.get_or_create(
+                    branch=branch, staff=staff[teacher_key], subject=subject, section=section, defaults={"periods_per_week": 9})
+            room = Room.objects.get(branch=branch, name=f"Room {section.program.code[1:]}A")
+            order = ["MAT", "SCI", "HIN", "ENG"]
+            for day in range(6):
+                for k, slot in enumerate(slots):
+                    subj = order[(k + day + si) % 4]
+                    try:
+                        tt.place(section=section, day=day, slot=slot, assignment=assign[subj], room=room, by="seed")
+                    except Exception:  # a clash: leave the period free in the demo
+                        continue
 
     @staticmethod
     def _fees(branch):

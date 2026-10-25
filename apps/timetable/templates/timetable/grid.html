@@ -1,0 +1,35 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<style>
+  @page { size: A4 landscape; margin: 10mm; }
+  body { font-family: "Noto Sans", "Noto Sans Devanagari", sans-serif; font-size: 9pt; color: #1f2430; }
+  h1 { font-size: 14pt; margin: 0; color: #1e2761; }
+  .sub { color: #5b6475; margin: 2pt 0 8pt; }
+  table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+  th, td { border: 0.6pt solid #c9cedb; padding: 4pt; vertical-align: top; text-align: center; }
+  th { background: #1e2761; color: #fff; }
+  td.when { background: #f1f3f8; width: 13%; font-weight: 600; text-align: left; }
+  td.break { background: #eef0f5; color: #5b6475; font-style: italic; }
+  td.off { background: #f7f8fb; }
+  .subj { font-weight: 700; }
+  .meta { color: #5b6475; font-size: 8pt; }
+  .sub-by { color: #b42318; font-size: 8pt; font-weight: 700; }
+</style></head><body>
+<h1>{{ branch.name }} — {{ g.title }}</h1>
+<div class="sub">{% if g.kind == "section" %}Class timetable{% if g.schedule %} · {{ g.schedule }}{% endif %}{% elif g.kind == "teacher" %}Teacher timetable{% else %}Room timetable{% endif %} · printed {{ printed_at|date:"d-m-Y" }}</div>
+<table>
+  <thead><tr><th>Period</th>{% for d in g.days %}<th>{{ d.name }}</th>{% endfor %}</tr></thead>
+  <tbody>
+  {% for r in rows %}
+    <tr><td class="when">{{ r.label }}<br><span class="meta">{{ r.start|time:"H:i" }}–{{ r.end|time:"H:i" }}</span></td>
+    {% if r.is_break %}<td class="break" colspan="{{ g.days|length }}">{{ r.label }}</td>{% else %}
+      {% for c in r.cells %}
+        {% if c.off %}<td class="off"></td>{% elif c %}<td><div class="subj">{{ c.subject }}</div>
+          <div class="meta">{% if g.kind == "section" %}{{ c.teacher_name }}{% else %}{{ c.section_name }}{% endif %}{% if c.room and g.kind != "room" %} · {{ c.room }}{% endif %}{% if g.kind == "room" %} · {{ c.teacher_name }}{% endif %}</div>
+          {% if c.substitute_name %}<div class="sub-by">Today: {{ c.substitute_name }}</div>{% endif %}</td>
+        {% else %}<td></td>{% endif %}
+      {% endfor %}
+    {% endif %}</tr>
+  {% endfor %}
+  </tbody>
+</table>
+</body></html>

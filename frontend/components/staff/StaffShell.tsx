@@ -2,7 +2,7 @@
 
 import {
   BankOutlined, BookOutlined, CarOutlined, CheckSquareOutlined, DashboardOutlined, FileDoneOutlined,
-  HomeOutlined, InboxOutlined, SettingOutlined, TeamOutlined, WalletOutlined,
+  HomeOutlined, InboxOutlined, ScheduleOutlined, SettingOutlined, TeamOutlined, WalletOutlined,
 } from "@ant-design/icons";
 import { ThemedLayout, ThemedTitle, useNotificationProvider } from "@refinedev/antd";
 import { type AccessControlProvider, type I18nProvider, Refine, type ResourceProps } from "@refinedev/core";
@@ -39,7 +39,7 @@ const NOTIFICATIONS: Record<string, { en: string; hi: string }> = {
 
 const ICONS: Record<string, React.ComponentType> = {
   BankOutlined, BookOutlined, CarOutlined, CheckSquareOutlined, DashboardOutlined, FileDoneOutlined,
-  HomeOutlined, InboxOutlined, SettingOutlined, TeamOutlined, WalletOutlined,
+  HomeOutlined, InboxOutlined, ScheduleOutlined, SettingOutlined, TeamOutlined, WalletOutlined,
 };
 
 function icon(name: string) {
