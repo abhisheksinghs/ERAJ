@@ -124,6 +124,22 @@ def cancel_future_charges(*, student, source_type: str, source_prefix: str, from
 
 
 @transaction.atomic
+def cancel_charge(*, charge: Charge, reason: str) -> Charge:
+    """Withdraw one charge (e.g. a library fine waived). Refused once any money
+    has been taken against it — refund at the counter instead."""
+    live = charges_with_balance(Charge.objects.filter(pk=charge.pk)).select_for_update(of=("self",)).first()
+    if live is None:
+        return charge  # already cancelled
+    if live.received > 0:
+        raise Conflict("This charge has already been paid at the fee counter; refund it there instead.")
+    Charge.objects.filter(pk=charge.pk).update(cancelled_at=timezone.now(), cancel_reason=reason)
+    _recompute_discounts(student=charge.student, head=charge.head, academic_year=charge.academic_year)
+    record("fees.charge_cancelled", detail={"charge": charge.pk, "reason": reason})
+    charge.refresh_from_db()
+    return charge
+
+
+@transaction.atomic
 def add_adjustment(*, student, head: FeeHead, amount, description: str, due_date: date | None = None) -> Charge:
     """Manual charge (positive) or credit note (negative)."""
     return post_charge(

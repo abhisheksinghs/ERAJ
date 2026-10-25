@@ -57,6 +57,7 @@ def return_book(*, issue: Issue):
             amount=Decimal(overdue_days) * settings.LIBRARY_FINE_PER_DAY,
             reason=f"{overdue_days} day(s) overdue",
         )
+        bill_fine_to_fees(fine)
 
     next_hold = book.holds.filter(status=Hold.Status.WAITING).order_by("created_at").first()
     if next_hold:
@@ -85,9 +86,34 @@ def renew_issue(*, issue: Issue) -> Issue:
 
 
 @transaction.atomic
+def bill_fine_to_fees(fine: Fine) -> None:
+    """Post a student's fine to their fee account so it is paid at the fee
+    counter with everything else. Staff fines stay with the library desk."""
+    from apps.core.licensing import tenant_has_module
+
+    student = fine.member.student
+    if student is None or not tenant_has_module("fees"):
+        return
+    from apps.fees import services as fees
+    from apps.fees.models import Charge, FeeHead
+
+    charge = fees.post_charge(
+        student=student, amount=fine.amount, due_date=timezone.localdate(), kind=FeeHead.Kind.LIBRARY_FINE,
+        description=f"Library fine: {fine.issue.book.title} ({fine.reason})",
+        source_type=Charge.Source.LIBRARY, source_id=f"fine:{fine.pk}",
+    )
+    fine.charge = charge
+    fine.save(update_fields=["charge", "updated_at"])
+
+
+@transaction.atomic
 def waive_fine(*, fine: Fine, by: str) -> Fine:
     if fine.waived:
         raise Conflict("Already waived.")
+    if fine.charge_id:
+        from apps.fees import services as fees
+
+        fees.cancel_charge(charge=fine.charge, reason=f"Library fine waived by {by}")
     fine.waived = True
     fine.waived_by = by
     fine.save(update_fields=["waived", "waived_by", "updated_at"])

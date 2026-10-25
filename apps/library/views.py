@@ -9,6 +9,7 @@ from apps.library import services
 from apps.library.filters import BookFilter, FineFilter, IssueFilter
 from apps.library.isbn import lookup as isbn_lookup
 from apps.library.models import Book, Category, Fine, Hold, Issue, Member
+from apps.library.selectors import fines_with_fee_balance
 from apps.org.mixins import BranchScopedViewSetMixin
 from apps.library.serializers import (
     BookSerializer,
@@ -94,17 +95,22 @@ class FineViewSet(
     BranchScopedViewSetMixin,
     mixins.RetrieveModelMixin, mixins.ListModelMixin, mixins.UpdateModelMixin, viewsets.GenericViewSet
 ):
-    queryset = Fine.objects.select_related("member", "issue").all()
     serializer_class = FineSerializer
     perm_resource = "library.fine"
     action_perms = {"waive": "library.fine.waive"}
     filterset_class = FineFilter
     ordering_fields = ["created_at", "amount"]
 
+    def get_queryset(self):
+        self.queryset = fines_with_fee_balance(
+            Fine.objects.select_related("member__student", "member__staff", "issue__book")
+        )
+        return super().get_queryset()
+
     @action(detail=True, methods=["post"])
     def waive(self, request, pk=None):
-        fine = services.waive_fine(fine=self.get_object(), by=request.user.email)
-        return Response(FineSerializer(fine).data)
+        services.waive_fine(fine=self.get_object(), by=request.user.email)
+        return Response(FineSerializer(self.get_queryset().get(pk=pk)).data)
 
 
 class HoldViewSet(

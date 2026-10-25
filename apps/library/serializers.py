@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from rest_framework import serializers
 
 from apps.library.models import Book, Category, Fine, Hold, Issue, Member
@@ -89,15 +91,56 @@ class IssueCreateSerializer(serializers.Serializer):
 
 
 class FineSerializer(BranchScopedSerializer):
-    outstanding = serializers.DecimalField(max_digits=8, decimal_places=2, read_only=True)
+    """`status`: open | paid | waived. A student's fine billed to Fees
+    (`in_fees`) is paid at the fee counter; it cannot be marked paid here."""
+
+    member_name = serializers.CharField(source="member.full_name", read_only=True)
+    book_title = serializers.CharField(source="issue.book.title", read_only=True)
+    in_fees = serializers.SerializerMethodField()
+    outstanding = serializers.SerializerMethodField()
+    status = serializers.SerializerMethodField()
+    can_mark_paid = serializers.SerializerMethodField()
 
     class Meta:
         model = Fine
         fields = (
-            "id", "branch", "member", "issue", "amount", "reason",
-            "paid", "waived", "waived_by", "outstanding", "created_at",
+            "id", "branch", "member", "member_name", "issue", "book_title", "amount", "reason",
+            "paid", "waived", "waived_by", "in_fees", "outstanding", "status", "can_mark_paid", "created_at",
         )
         read_only_fields = ("member", "issue", "amount", "reason", "waived", "waived_by", "created_at")
+
+    def _fee_outstanding(self, obj):
+        if hasattr(obj, "fee_outstanding"):
+            return obj.fee_outstanding
+        from apps.fees.models import Charge
+        from apps.fees.selectors import charges_with_balance
+
+        row = charges_with_balance(Charge.objects.filter(pk=obj.charge_id)).values("outstanding").first()
+        return row["outstanding"] if row else None
+
+    def get_in_fees(self, obj) -> bool:
+        return obj.charge_id is not None
+
+    def get_outstanding(self, obj) -> Decimal:
+        if obj.waived:
+            return Decimal("0.00")
+        if obj.charge_id:
+            owed = self._fee_outstanding(obj)
+            return max(owed, Decimal("0.00")) if owed is not None else Decimal("0.00")
+        return obj.outstanding
+
+    def get_status(self, obj) -> str:
+        if obj.waived:
+            return "waived"
+        return "paid" if (obj.paid if not obj.charge_id else self.get_outstanding(obj) == 0) else "open"
+
+    def get_can_mark_paid(self, obj) -> bool:
+        return not (obj.paid or obj.waived or obj.charge_id)
+
+    def validate_paid(self, value):
+        if self.instance is not None and self.instance.charge_id and value:
+            raise serializers.ValidationError("This fine is on the student's fee account; collect it at the fee counter.")
+        return value
 
 
 class HoldSerializer(BranchScopedSerializer):

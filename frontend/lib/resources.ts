@@ -386,18 +386,19 @@ export const RESOURCES: ResourceDef[] = [
   },
   {
     name: "library/fines", module: "library", label: t("Fines", "जुर्माना"), perm: "library.fine",
-    filters: [{ field: "paid", label: t("Paid", "भुगतान"), options: [opt("true", "Paid", "भुगतान"), opt("false", "Unpaid", "बकाया")] }],
+    filters: [{ field: "status", label: t("Status", "स्थिति"), options: [opt("open", "Unpaid", "बकाया"), opt("paid", "Paid", "भुगतान"), opt("waived", "Waived", "माफ़")] }],
     columns: [
-      { key: "member", label: t("Member id", "सदस्य") },
+      { key: "member_name", label: t("Member", "सदस्य") },
+      { key: "book_title", label: t("Book", "पुस्तक") },
       { key: "amount", label: t("Amount", "राशि"), type: "money", sorter: true },
       { key: "reason", label: t("Reason", "कारण") },
-      { key: "paid", label: t("Paid", "भुगतान"), type: "bool" },
-      { key: "waived", label: t("Waived", "माफ़"), type: "bool" },
+      { key: "status", label: t("Status", "स्थिति"), type: "tag", options: [opt("open", "Unpaid", "बकाया"), opt("paid", "Paid", "भुगतान"), opt("waived", "Waived", "माफ़")] },
+      { key: "in_fees", label: t("On fee account", "शुल्क खाते में"), type: "bool" },
       { key: "created_at", label: t("Date", "तिथि"), type: "date", sorter: true },
     ],
     actions: [
-      { key: "pay", label: t("Mark paid", "भुगतान दर्ज करें"), perm: "library.fine.manage", method: "patch", path: "", body: { paid: true }, visibleWhen: { field: "paid", equals: false } },
-      { key: "waive", label: t("Waive", "माफ़ करें"), perm: "library.fine.waive", method: "post", path: "waive", confirm: t("Waive this fine?", "यह जुर्माना माफ़ करें?"), danger: true, visibleWhen: { field: "waived", equals: false } },
+      { key: "pay", label: t("Mark paid", "भुगतान दर्ज करें"), perm: "library.fine.manage", method: "patch", path: "", body: { paid: true }, visibleWhen: { field: "can_mark_paid", equals: true } },
+      { key: "waive", label: t("Waive", "माफ़ करें"), perm: "library.fine.waive", method: "post", path: "waive", confirm: t("Waive this fine?", "यह जुर्माना माफ़ करें?"), danger: true, visibleWhen: { field: "status", equals: "open" } },
     ],
   },
   {

@@ -142,6 +142,11 @@ class Fine(TimeStamped, BranchOwned):
     paid = models.BooleanField(default=False)
     waived = models.BooleanField(default=False)
     waived_by = models.CharField(max_length=255, blank=True)
+    # A student's fine is billed to their fee account (when the institution has
+    # Fees) and collected at the fee counter; `paid` is then not used.
+    charge = models.OneToOneField(
+        "fees.Charge", null=True, blank=True, on_delete=models.PROTECT, related_name="library_fine"
+    )
 
     class Meta:
         ordering = ("-created_at",)
