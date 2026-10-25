@@ -45,3 +45,9 @@ class HasPerm(BasePermission):
             return False
         scope = resolve_scope(request)
         return roles_allow(set(scope.roles), perm)
+
+
+def request_can(request, perm: str) -> bool:
+    """Does the caller hold `perm` in the active branch? For rules inside a
+    view (e.g. a teacher may mark only their own sections)."""
+    return roles_allow(set(resolve_scope(request).roles), perm)

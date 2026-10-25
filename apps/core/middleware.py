@@ -40,6 +40,7 @@ MODULE_PATH_PREFIXES = {
     "/api/inventory": "inventory",
     "/api/timetable": "timetable",
     "/api/learning": "learning",
+    "/iclock": "attendance",
 }
 
 

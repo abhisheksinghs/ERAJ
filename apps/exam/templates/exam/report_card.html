@@ -1,0 +1,32 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">{% include "exam/_style.html" %}</head><body>
+{% for r in rows %}
+<div class="card">
+  <header>{% if logo %}<img src="{{ logo }}">{% endif %}<div><h1>{{ branch.name }}{% if branch.name_hi %} · {{ branch.name_hi }}{% endif %}</h1>
+    <h2>Report card — {{ exam.name }} · {{ exam.academic_year.name }}</h2></div></header>
+  <div class="who"><span>Name: <b>{{ r.name }}</b></span><span>Admission no.: <b>{{ r.admission_no }}</b></span>
+    <span>Class: <b>{{ r.section_name }}</b></span><span>Roll no.: <b>{{ r.roll_no|default:"—" }}</b></span></div>
+  <table>
+    <thead><tr><th class="l">Subject</th><th>Theory</th><th>Practical</th><th>Total</th><th>Max</th><th>Grade</th><th>Result</th></tr></thead>
+    <tbody>
+    {% for s in r.subjects %}
+      <tr><td class="l">{{ s.name }}</td>
+        <td>{% if s.status == "absent" %}AB{% elif s.theory is not None %}{{ s.theory|floatformat:"-2" }}{% else %}—{% endif %}</td>
+        <td>{% if s.practical is not None %}{{ s.practical|floatformat:"-2" }}{% else %}—{% endif %}</td>
+        <td>{{ s.display }}</td><td>{{ s.max|floatformat:"-2"|default:"—" }}</td><td>{{ s.grade|default:"—" }}</td>
+        <td>{% if s.passed is None %}Exempt{% elif s.passed %}Pass{% else %}<span class="fail">Fail</span>{% endif %}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  <div class="sum">
+    <div>Total<b>{{ r.total|floatformat:"-2" }} / {{ r.max_total|floatformat:"-2" }}</b></div>
+    <div>Percentage<b>{{ r.percentage }}%</b></div>
+    <div>Grade<b>{{ r.grade|default:"—" }}</b></div>
+    {% if credit %}<div>SGPA<b>{{ r.sgpa }}</b></div>{% endif %}
+    <div>Rank (section / class)<b>{{ r.rank_section }} / {{ r.rank_class }}</b></div>
+    <div>Result<b>{% if r.pending %}Pending{% elif r.passed %}Pass{% else %}<span class="fail">Fail</span>{% endif %}</b></div>
+  </div>
+  <div class="bands">Grades: {% for b in bands %}{{ b.grade }} ≥ {{ b.min_percent|floatformat:"-2" }}%{% if not forloop.last %} · {% endif %}{% endfor %} · AB = absent</div>
+  <div class="sign"><span>Class teacher</span><span>Parent</span><span>Principal</span></div>
+</div>
+{% endfor %}
+</body></html>

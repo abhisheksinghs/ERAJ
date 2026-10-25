@@ -18,6 +18,9 @@ export function RelationSelect({
   onChange,
   placeholder,
   multiple,
+  filters,
+  style,
+  enabled = true,
 }: {
   resource: string;
   label: string;
@@ -26,6 +29,9 @@ export function RelationSelect({
   onChange?: (v: number | number[] | null) => void;
   placeholder?: string;
   multiple?: boolean;
+  filters?: { field: string; value: string | number | null | undefined }[]; // fixed server-side filters
+  style?: React.CSSProperties;
+  enabled?: boolean; // false: don't query yet (a parent choice is still missing)
 }) {
   const { selectProps } = useSelect({
     resource,
@@ -33,8 +39,11 @@ export function RelationSelect({
     optionValue: "id" as never,
     defaultValue: (value ?? undefined) as never,
     pagination: { pageSize: 50, mode: "server" },
+    filters: (filters ?? []).filter((f) => f.value !== undefined && f.value !== null && f.value !== "")
+      .map((f) => ({ field: f.field, operator: "eq" as const, value: f.value })),
     onSearch: search ? (v) => [{ field: "q", operator: "contains", value: v }] : undefined,
     debounce: 300,
+    queryOptions: { enabled },
   });
   return (
     <Select
@@ -46,7 +55,8 @@ export function RelationSelect({
       showSearch={Boolean(search) || selectProps.showSearch}
       filterOption={search ? false : (input, option) => String(option?.label ?? "").toLowerCase().includes(input.toLowerCase())}
       placeholder={placeholder}
-      style={{ width: "100%" }}
+      disabled={!enabled}
+      style={{ width: "100%", ...style }}
     />
   );
 }

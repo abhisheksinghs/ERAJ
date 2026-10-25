@@ -20,6 +20,7 @@ class Branch(TimeStamped, SoftDelete):
     address = models.TextField(blank=True)
     phone = models.CharField(max_length=20, blank=True)
     email = models.EmailField(blank=True)
+    logo = models.ImageField(upload_to="branding/", null=True, blank=True, help_text="Printed on report cards and receipts")
     is_active = models.BooleanField(default=True)
 
     class Meta:

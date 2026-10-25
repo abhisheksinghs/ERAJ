@@ -39,6 +39,11 @@ async function pick(page, label, text, { type = true } = {}) {
 async function save(page, urlRe) {
   await Promise.all([page.waitForURL(urlRe, { timeout: 20000 }), page.getByRole("button", { name: /save/i }).click()]);
 }
+// Success toasts stack over the table's action column; dismiss them before clicking there.
+async function closeToasts(page) {
+  for (const x of await page.locator(".ant-notification-notice-close").all()) await x.click().catch(() => {});
+  await page.waitForTimeout(300);
+}
 const row = (page, text) => page.locator(`.ant-table-row:has-text('${text}')`).first();
 
 try {
@@ -101,6 +106,7 @@ try {
   await save(page, /\/hostel\/outpasses(\?|$)/);
   await page.waitForSelector(".ant-table-row:has-text('Chhath puja')", { timeout: 20000 });
   for (const [btn, status] of [["Approve", "Approved"], ["Gate: out", "Out"], ["Gate: back", "Returned"]]) {
+    await closeToasts(page);
     await row(page, "Chhath puja").getByRole("button", { name: btn }).click();
     await page.waitForSelector(`.ant-table-row:has-text('Chhath puja') >> text=${status}`, { timeout: 20000 });
   }
@@ -142,7 +148,8 @@ try {
   const allErrors = [...errors, ...acc.errors].filter((e) => !/favicon|Download the React DevTools|status of 409/.test(e));
   check("no browser errors", allErrors.length === 0, allErrors.slice(0, 3).join(" | "));
 } catch (e) {
-  check("walkthrough completed", false, e.message.split("\n")[0]);
+  check("walkthrough completed", false, e.message.split("\n").slice(0, 4).join(" | "));
+  for (const c of browser.contexts()) for (const pg of c.pages()) await pg.screenshot({ path: `${OUT}/fail-${Date.now()}.png`, fullPage: true }).catch(() => {});
 } finally {
   await browser.close();
   const failed = results.filter((r) => !r.ok).length;

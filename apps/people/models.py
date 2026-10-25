@@ -271,3 +271,27 @@ class Enrollment(TimeStamped, BranchOwned):
 
     def __str__(self) -> str:
         return f"{self.student} — {self.program} {self.academic_year}"
+
+
+class TeachingAssignment(TimeStamped, BranchOwned):
+    """Who teaches which subject to which section (ADR-008). Exam marks entry,
+    the timetable and per-lecture attendance all read it."""
+
+    staff = models.ForeignKey(Staff, on_delete=models.CASCADE, related_name="teaching_assignments")
+    subject = models.ForeignKey(Subject, on_delete=models.CASCADE, related_name="teaching_assignments")
+    section = models.ForeignKey(Section, on_delete=models.CASCADE, related_name="teaching_assignments")
+    periods_per_week = models.PositiveSmallIntegerField(default=0, help_text="0 = no weekly limit for this subject")
+
+    class Meta:
+        ordering = ("section", "subject")
+        constraints = [
+            models.UniqueConstraint(fields=["staff", "subject", "section"], name="people_teaching_assignment_unique"),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.staff} — {self.subject} — {self.section}"
+
+
+def staff_for_user(user):
+    """The Staff row linked to a login, or None."""
+    return getattr(user, "staff_profile", None) if user and user.is_authenticated else None

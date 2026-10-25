@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<style>
+  @page { size: A4 landscape; margin: 9mm; @bottom-right { content: "Page " counter(page) " of " counter(pages); font-size: 7pt; color: #5b6475; } }
+  body { font-family: "Noto Sans", "Noto Sans Devanagari", sans-serif; font-size: 7pt; color: #1f2430; }
+  h1 { font-size: 12pt; margin: 0; color: #1e2761; }
+  .sub { color: #5b6475; margin: 2pt 0 6pt; font-size: 8pt; }
+  table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+  th, td { border: 0.5pt solid #c9cedb; padding: 1.5pt 1pt; text-align: center; overflow: hidden; white-space: nowrap; }
+  th { background: #f1f3f8; font-weight: 600; }
+  td.name, th.name { text-align: left; width: 26%; padding-left: 3pt; }
+  th.roll, td.roll { width: 4%; }
+  th.tot, td.tot { width: 4.5%; }
+  .hol { background: #e9ecf3; }
+  .A { color: #b42318; font-weight: 700; }
+  .L { color: #8a5a00; }
+  .key { margin-top: 6pt; color: #5b6475; font-size: 7pt; }
+  thead { display: table-header-group; }
+</style>
+</head>
+<body>
+<h1>{{ branch.name }} — Attendance register</h1>
+<div class="sub">{{ d.section_name }} · {{ d.month|date:"F Y" }} · Working days: {{ d.working_days }}</div>
+<table>
+  <thead>
+    <tr>
+      <th class="roll">Roll</th><th class="name">Student</th>
+      {% for day in d.days %}<th class="{% if day.holiday %}hol{% endif %}">{{ day.date|date:"j" }}<br>{{ day.date|date:"D"|slice:":2" }}</th>{% endfor %}
+      <th class="tot">Att.</th><th class="tot">Of</th><th class="tot">%</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for r in d.rows %}
+    <tr>
+      <td class="roll">{{ r.roll_no }}</td><td class="name">{{ r.name }}</td>
+      {% for m in r.marks %}<td class="{% if m is None %}hol{% endif %} {{ m|default:'' }}">{{ m|default:"" }}</td>{% endfor %}
+      <td class="tot">{{ r.attended|floatformat:"-1" }}</td><td class="tot">{{ r.marked }}</td><td class="tot">{{ r.percentage }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+<div class="key">P present · A absent · L leave · LT late · H half-day (counts ½) · shaded = holiday / weekly off, not counted · printed {{ printed_at|date:"d-m-Y H:i" }}</div>
+</body>
+</html>

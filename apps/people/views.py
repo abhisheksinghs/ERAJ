@@ -18,6 +18,7 @@ from apps.people.models import (
     Student,
     StudentGuardian,
     Subject,
+    TeachingAssignment,
     Term,
 )
 from apps.people.serializers import (
@@ -32,6 +33,7 @@ from apps.people.serializers import (
     StudentGuardianSerializer,
     StudentSerializer,
     SubjectSerializer,
+    TeachingAssignmentSerializer,
     TermSerializer,
 )
 
@@ -94,7 +96,7 @@ class SectionViewSet(BranchScopedViewSetMixin, viewsets.ModelViewSet):
     search_fields = ["name", "program__name"]
 
     def get_queryset(self):
-        base = Section.objects.select_related("program", "class_teacher").annotate(
+        base = Section.objects.select_related("program", "class_teacher", "term").annotate(
             student_count=Count("enrollments", filter=Q(enrollments__status=Enrollment.Status.ACTIVE))
         )
         self.queryset = base
@@ -182,3 +184,11 @@ def _run_import(request, importer, branch):
     result = importer(branch=branch, rows=rows, dry_run=dry_run)
     status = 400 if result["errors"] else (200 if result["dry_run"] else 201)
     return Response(ImportResultSerializer(result).data, status=status)
+
+
+class TeachingAssignmentViewSet(BranchScopedViewSetMixin, viewsets.ModelViewSet):
+    queryset = TeachingAssignment.objects.select_related("staff", "subject", "section__program")
+    serializer_class = TeachingAssignmentSerializer
+    perm_resource = "people.teaching"
+    filterset_fields = ["staff", "subject", "section", "section__program"]
+    search_fields = ["staff__full_name", "subject__name"]

@@ -6,6 +6,7 @@ only (config/urls_public.py), behind MFA.
 from django.urls import include, path
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
+from apps.attendance.devices import adms_cdata, adms_getrequest
 from config.health import live, ready
 
 urlpatterns = [
@@ -25,4 +26,7 @@ urlpatterns = [
     path("api/exam/", include("apps.exam.urls")),
     path("api/transport/", include("apps.transport.urls")),
     path("api/inventory/", include("apps.inventory.urls")),
+    # Attendance devices speaking ZKTeco ADMS (eSSL, Realtime, Identix …) call these fixed paths.
+    path("iclock/cdata", adms_cdata),
+    path("iclock/getrequest", adms_getrequest),
 ]

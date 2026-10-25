@@ -237,6 +237,8 @@ SPECTACULAR_SETTINGS = {
         "VisitStatusEnum": "apps.hostel.models.Visit.Status",
         "WaitlistStatusEnum": "apps.hostel.models.Waitlist.Status",
         "TicketStatusEnum": "apps.hostel.models.MaintenanceTicket.Status",
+        "AttendanceModeEnum": "apps.attendance.models.AttendanceSettings.Mode",
+        "PaymentModeEnum": "apps.fees.models.Receipt.Mode",
     },
 }
 

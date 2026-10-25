@@ -128,6 +128,7 @@ export function ResourceList({ def }: { def: ResourceDef }) {
               <RelationSelect
                 resource={f.relation.resource}
                 label={f.relation.label}
+                search={f.relation.search}
                 placeholder={tr(f.label, lang)}
                 onChange={(v) => setFilters([{ field: f.field, operator: "eq", value: v }], "merge")}
               />

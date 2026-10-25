@@ -61,7 +61,7 @@ export interface FilterDef {
   field: string;
   label: T;
   options?: Option[];
-  relation?: { resource: string; label: string };
+  relation?: { resource: string; label: string; search?: boolean };
 }
 
 export interface ResourceDef {
@@ -127,6 +127,14 @@ const COMPLAINT_CATEGORY = [opt("quality", "Food quality", "भोजन गु�
 const VISIT_STATUS = [opt("held", "Waiting for warden", "वार्डन की प्रतीक्षा"), opt("in", "Inside", "अंदर"), opt("out", "Left", "चले गए"), opt("refused", "Refused", "मना")];
 const OUTPASS_STATUS = [opt("requested", "Requested", "अनुरोधित"), opt("approved", "Approved", "स्वीकृत"), opt("rejected", "Rejected", "अस्वीकृत"), opt("out", "Out", "बाहर"), opt("returned", "Returned", "लौटे"), opt("cancelled", "Cancelled", "रद्द")];
 
+const ATT_MODE = [opt("daily", "Once a day", "दिन में एक बार"), opt("per_lecture", "Per lecture / subject", "प्रति व्याख्यान")];
+const DEVICE_BRAND = [
+  opt("zkteco", "ZKTeco (ADMS push)", "ZKTeco"), opt("essl", "eSSL (ADMS push)", "eSSL"), opt("realtime", "Realtime (ADMS push)", "Realtime"),
+  opt("identix", "Identix (ADMS push)", "Identix"), opt("generic", "Other — JSON push", "अन्य — JSON"), opt("file", "Other — Excel/CSV import", "अन्य — फ़ाइल आयात"),
+];
+const SCALE_KIND = [opt("marks", "Marks → grade (school)", "अंक → ग्रेड (विद्यालय)"), opt("credit", "Credits → SGPA/CGPA (college)", "क्रेडिट → SGPA/CGPA")];
+const SECTION_REL = { resource: "people/sections", label: "label" };
+
 const STUDENT_REL = { resource: "people/students", label: "full_name", search: true };
 const STAFF_REL = { resource: "people/staff", label: "full_name", search: true };
 
@@ -176,7 +184,7 @@ export const RESOURCES: ResourceDef[] = [
     searchable: true, canCreate: true, canEdit: true, canDelete: true,
     filters: [
       { field: "program", label: t("Class / course", "कक्षा / पाठ्यक्रम"), relation: { resource: "people/programs", label: "name" } },
-      { field: "section", label: t("Section", "अनुभाग"), relation: { resource: "people/sections", label: "name" } },
+      { field: "section", label: t("Section", "अनुभाग"), relation: SECTION_REL },
     ],
     columns: [
       { key: "admission_no", label: t("Admission no.", "प्रवेश सं.") },
@@ -191,7 +199,7 @@ export const RESOURCES: ResourceDef[] = [
       { name: "academic_year", label: t("Academic year", "शैक्षणिक वर्ष"), type: "relation", relation: { resource: "people/academic-years", label: "name" }, required: true },
       { name: "program", label: t("Class / course", "कक्षा / पाठ्यक्रम"), type: "relation", relation: { resource: "people/programs", label: "name" }, required: true },
       { name: "term", label: t("Term / semester", "सत्र / सेमेस्टर"), type: "relation", relation: { resource: "people/terms", label: "name" } },
-      { name: "section", label: t("Section", "अनुभाग"), type: "relation", relation: { resource: "people/sections", label: "name" } },
+      { name: "section", label: t("Section", "अनुभाग"), type: "relation", relation: SECTION_REL },
       { name: "roll_no", label: t("Roll no.", "अनुक्रमांक"), type: "text" },
     ],
   },
@@ -273,6 +281,23 @@ export const RESOURCES: ResourceDef[] = [
       { name: "name", label: t("Section name", "अनुभाग नाम"), type: "text", required: true },
       { name: "class_teacher", label: t("Class teacher", "कक्षा शिक्षक"), type: "relation", relation: STAFF_REL },
       { name: "capacity", label: t("Capacity", "क्षमता"), type: "number" },
+    ],
+  },
+  {
+    name: "people/teaching", module: "people", label: t("Teaching allocation", "शिक्षण आवंटन"), perm: "people.teaching",
+    searchable: true, canCreate: true, canEdit: true, canDelete: true,
+    filters: [{ field: "section", label: t("Section", "अनुभाग"), relation: SECTION_REL }],
+    columns: [
+      { key: "section_name", label: t("Section", "अनुभाग") },
+      { key: "subject_name", label: t("Subject", "विषय") },
+      { key: "staff_name", label: t("Teacher", "शिक्षक") },
+      { key: "periods_per_week", label: t("Periods / week", "कालांश / सप्ताह"), type: "number" },
+    ],
+    fields: [
+      { name: "section", label: t("Section", "अनुभाग"), type: "relation", relation: { ...SECTION_REL, search: true }, required: true },
+      { name: "subject", label: t("Subject", "विषय"), type: "relation", relation: { resource: "people/subjects", label: "name", search: true }, required: true },
+      { name: "staff", label: t("Teacher", "शिक्षक"), type: "relation", relation: STAFF_REL, required: true },
+      { name: "periods_per_week", label: t("Periods per week", "प्रति सप्ताह कालांश"), type: "number" },
     ],
   },
   {
@@ -816,42 +841,183 @@ export const RESOURCES: ResourceDef[] = [
   // ------------------------------------------------------------ attendance
   {
     name: "attendance/records", module: "attendance", label: t("Attendance records", "उपस्थिति अभिलेख"), perm: "attendance.record",
-    canCreate: true, createEndpoint: "attendance/records/mark",
-    filters: [{ field: "status", label: t("Status", "स्थिति"), options: ATT_STATUS }],
+    searchable: true,
+    filters: [
+      { field: "section", label: t("Section", "अनुभाग"), relation: SECTION_REL },
+      { field: "status", label: t("Status", "स्थिति"), options: ATT_STATUS },
+      { field: "source", label: t("Source", "स्रोत"), options: [opt("manual", "Teacher", "शिक्षक"), opt("device", "Device", "उपकरण")] },
+    ],
     columns: [
       { key: "date", label: t("Date", "तिथि"), type: "date", sorter: true },
       { key: "admission_no", label: t("Admission no.", "प्रवेश सं.") },
       { key: "student_name", label: t("Student", "छात्र") },
+      { key: "section_name", label: t("Section", "अनुभाग") },
       { key: "period", label: t("Lecture", "व्याख्यान"), type: "number" },
       { key: "status", label: t("Status", "स्थिति"), type: "tag", options: ATT_STATUS },
+      { key: "source", label: t("Source", "स्रोत"), type: "tag", options: [opt("manual", "Teacher", "शिक्षक"), opt("device", "Device", "उपकरण")] },
       { key: "marked_by", label: t("Marked by", "द्वारा") },
     ],
+  },
+  {
+    name: "attendance/holidays", module: "attendance", label: t("Holidays", "अवकाश"), perm: "attendance.holiday",
+    canCreate: true, canEdit: true, canDelete: true, defaultSort: { field: "date", order: "asc" },
+    columns: [
+      { key: "date", label: t("Date", "तिथि"), type: "date", sorter: true },
+      { key: "name", label: t("Holiday", "अवकाश") },
+      { key: "name_hi", label: t("In Hindi", "हिन्दी में") },
+    ],
     fields: [
-      { name: "student", label: t("Student", "छात्र"), type: "relation", relation: STUDENT_REL, required: true },
       { name: "date", label: t("Date", "तिथि"), type: "date", required: true },
-      { name: "status", label: t("Status", "स्थिति"), type: "select", options: ATT_STATUS, required: true },
-      { name: "period", label: t("Lecture no. (colleges)", "व्याख्यान सं. (महाविद्यालय)"), type: "number" },
+      { name: "name", label: t("Holiday", "अवकाश"), type: "text", required: true },
+      { name: "name_hi", label: t("Name in Hindi", "हिन्दी में नाम"), type: "text" },
+    ],
+  },
+  {
+    name: "attendance/devices", module: "attendance", label: t("Attendance devices", "उपस्थिति उपकरण"), perm: "attendance.device",
+    canCreate: true, canEdit: true, canDelete: true, exportable: false,
+    columns: [
+      { key: "name", label: t("Device", "उपकरण") },
+      { key: "brand", label: t("Brand / connection", "ब्रांड / कनेक्शन"), type: "tag", options: DEVICE_BRAND },
+      { key: "serial_no", label: t("Serial no.", "सीरियल सं.") },
+      { key: "location", label: t("Location", "स्थान") },
+      { key: "push_url", label: t("How it connects", "कैसे जुड़ता है") },
+      { key: "token", label: t("Device key (JSON push)", "डिवाइस कुंजी") },
+      { key: "last_seen_at", label: t("Last seen", "अंतिम संपर्क"), type: "datetime" },
+      { key: "is_active", label: t("Active", "सक्रिय"), type: "bool" },
+    ],
+    fields: [
+      { name: "name", label: t("Name", "नाम"), type: "text", required: true },
+      { name: "brand", label: t("Brand / connection", "ब्रांड / कनेक्शन"), type: "select", options: DEVICE_BRAND, required: true },
+      { name: "model", label: t("Model", "मॉडल"), type: "text" },
+      { name: "serial_no", label: t("Serial number (as on the device)", "सीरियल संख्या"), type: "text", required: true },
+      { name: "location", label: t("Location", "स्थान"), type: "text" },
+      { name: "allowed_ips", label: t("Allowed IP addresses (optional)", "अनुमत IP (वैकल्पिक)"), type: "text" },
+      { name: "is_active", label: t("Active", "सक्रिय"), type: "boolean" },
+    ],
+    actions: [
+      { key: "rotate", label: t("New key", "नई कुंजी"), perm: "attendance.device.manage", method: "post", path: "rotate-key",
+        confirm: t("Issue a new device key? The old key stops working.", "नई कुंजी जारी करें? पुरानी कुंजी बंद हो जाएगी।") },
+    ],
+  },
+  {
+    name: "attendance/cards", module: "attendance", label: t("Cards & device IDs", "कार्ड एवं डिवाइस आईडी"), perm: "attendance.card",
+    searchable: true, canCreate: true, canEdit: true, canDelete: true,
+    columns: [
+      { key: "code", label: t("Card / user code", "कार्ड / उपयोगकर्ता कोड") },
+      { key: "person", label: t("Student / staff", "छात्र / कर्मचारी") },
+      { key: "is_active", label: t("Active", "सक्रिय"), type: "bool" },
+    ],
+    fields: [
+      { name: "code", label: t("Card number or device user ID", "कार्ड संख्या या डिवाइस आईडी"), type: "text", required: true },
+      { name: "student", label: t("Student", "छात्र"), type: "relation", relation: STUDENT_REL, help: t("Choose a student or a staff member", "छात्र या कर्मचारी चुनें") },
+      { name: "staff", label: t("Staff", "कर्मचारी"), type: "relation", relation: STAFF_REL },
+      { name: "is_active", label: t("Active", "सक्रिय"), type: "boolean" },
+    ],
+  },
+  {
+    name: "attendance/punches", module: "attendance", label: t("Device punches", "उपकरण पंच"), perm: "attendance.punch",
+    searchable: true, importable: true,
+    filters: [{ field: "source", label: t("Source", "स्रोत"), options: [opt("push", "Device", "उपकरण"), opt("import", "File import", "फ़ाइल आयात")] }],
+    columns: [
+      { key: "punched_at", label: t("Time", "समय"), type: "datetime", sorter: true },
+      { key: "code", label: t("Code", "कोड") },
+      { key: "person", label: t("Student / staff", "छात्र / कर्मचारी") },
+      { key: "device_name", label: t("Device", "उपकरण") },
+      { key: "source", label: t("Source", "स्रोत"), type: "tag" },
+    ],
+  },
+  {
+    name: "attendance/settings", module: "attendance", label: t("Attendance settings", "उपस्थिति सेटिंग्स"), perm: "attendance.settings",
+    canEdit: true, exportable: false,
+    columns: [
+      { key: "mode", label: t("Marking", "चिह्नांकन"), type: "tag", options: ATT_MODE },
+      { key: "weekly_off", label: t("Weekly off (0=Mon … 6=Sun)", "साप्ताहिक अवकाश") },
+      { key: "threshold_percent", label: t("Minimum %", "न्यूनतम %"), type: "number" },
+      { key: "long_absence_days", label: t("Long absence after (days)", "लंबी अनुपस्थिति (दिन)"), type: "number" },
+      { key: "auto_mark_from_punches", label: t("Device punches mark present", "पंच से उपस्थित"), type: "bool" },
+    ],
+    fields: [
+      { name: "mode", label: t("Marking", "चिह्नांकन"), type: "select", options: ATT_MODE, required: true },
+      { name: "weekly_off", label: t("Weekly off days (0=Mon … 6=Sun, comma separated)", "साप्ताहिक अवकाश (0=सोम … 6=रवि)"), type: "text", required: true },
+      { name: "threshold_percent", label: t("Minimum attendance %", "न्यूनतम उपस्थिति %"), type: "number", required: true },
+      { name: "long_absence_days", label: t("Flag long absence after (days)", "लंबी अनुपस्थिति (दिन)"), type: "number", required: true },
+      { name: "auto_mark_from_punches", label: t("A device punch marks the student present", "पंच से छात्र उपस्थित"), type: "boolean" },
     ],
   },
 
   // ------------------------------------------------------------ exam
   {
-    name: "exam/results", module: "exam", label: t("Marks", "अंक"), perm: "exam.result",
-    canCreate: true, createEndpoint: "exam/results/record",
+    name: "exam/exams", module: "exam", label: t("Exams", "परीक्षाएँ"), perm: "exam.setup",
+    searchable: true, canCreate: true, canEdit: true, canDelete: true,
+    filters: [{ field: "program", label: t("Class / course", "कक्षा / पाठ्यक्रम"), relation: { resource: "people/programs", label: "name" } }],
     columns: [
-      { key: "student_name", label: t("Student", "छात्र") },
-      { key: "subject_name", label: t("Subject", "विषय") },
-      { key: "exam_name", label: t("Exam", "परीक्षा") },
-      { key: "marks_obtained", label: t("Marks", "अंक"), type: "number" },
-      { key: "max_marks", label: t("Out of", "पूर्णांक"), type: "number" },
-      { key: "percentage", label: t("%", "%"), type: "number" },
+      { key: "name", label: t("Exam", "परीक्षा") },
+      { key: "program_name", label: t("Class / course", "कक्षा / पाठ्यक्रम") },
+      { key: "scale_name", label: t("Grading", "ग्रेडिंग") },
+      { key: "weightage", label: t("Weightage %", "भारांक %"), type: "number" },
+      { key: "subject_count", label: t("Subjects", "विषय"), type: "number" },
+      { key: "is_published", label: t("Published", "प्रकाशित"), type: "bool" },
     ],
     fields: [
-      { name: "student", label: t("Student", "छात्र"), type: "relation", relation: STUDENT_REL, required: true },
+      { name: "name", label: t("Exam name (e.g. Half-Yearly)", "परीक्षा नाम (उदा. अर्धवार्षिक)"), type: "text", required: true },
+      { name: "name_hi", label: t("Name in Hindi", "हिन्दी में नाम"), type: "text" },
+      { name: "academic_year", label: t("Academic year", "शैक्षणिक वर्ष"), type: "relation", relation: { resource: "people/academic-years", label: "name" }, required: true },
+      { name: "program", label: t("Class / course", "कक्षा / पाठ्यक्रम"), type: "relation", relation: { resource: "people/programs", label: "name" }, required: true },
+      { name: "term", label: t("Term / semester (colleges)", "सत्र / सेमेस्टर"), type: "relation", relation: { resource: "people/terms", label: "name" } },
+      { name: "scale", label: t("Grading", "ग्रेडिंग"), type: "relation", relation: { resource: "exam/scales", label: "name" }, required: true },
+      { name: "weightage", label: t("Weightage in the final result (%)", "अंतिम परिणाम में भारांक (%)"), type: "number" },
+      { name: "sequence", label: t("Order", "क्रम"), type: "number" },
+      { name: "is_term_final", label: t("Semester-end exam (counts for SGPA/CGPA)", "सेमेस्टर-अंत परीक्षा (SGPA/CGPA)"), type: "boolean" },
+    ],
+    actions: [
+      { key: "datesheet", label: t("Date sheet", "डेट शीट"), perm: "exam.setup.view", method: "link", path: "", href: "/api/proxy/exam/exams/{id}/date-sheet", newTab: true },
+      { key: "publish", label: t("Publish results", "परिणाम प्रकाशित करें"), perm: "exam.result.publish", method: "post", path: "publish",
+        confirm: t("Publish results to parents and students?", "परिणाम अभिभावकों व छात्रों को प्रकाशित करें?"), visibleWhen: { field: "is_published", equals: false } },
+      { key: "unpublish", label: t("Unpublish", "अप्रकाशित करें"), perm: "exam.result.publish", method: "post", path: "unpublish", danger: true,
+        visibleWhen: { field: "is_published", equals: true } },
+    ],
+  },
+  {
+    name: "exam/exam-subjects", module: "exam", label: t("Exam subjects & date sheet", "परीक्षा विषय एवं डेट शीट"), perm: "exam.setup",
+    canCreate: true, canEdit: true, canDelete: true,
+    filters: [{ field: "exam", label: t("Exam", "परीक्षा"), relation: { resource: "exam/exams", label: "label", search: true } }],
+    columns: [
+      { key: "exam_name", label: t("Exam", "परीक्षा") },
+      { key: "subject_name", label: t("Subject", "विषय") },
+      { key: "max_theory", label: t("Theory", "सैद्धांतिक"), type: "number" },
+      { key: "max_practical", label: t("Practical", "प्रायोगिक"), type: "number" },
+      { key: "pass_marks", label: t("Pass marks", "उत्तीर्णांक"), type: "number" },
+      { key: "date", label: t("Date", "तिथि"), type: "date", sorter: true },
+      { key: "start_time", label: t("Starts", "आरंभ") },
+    ],
+    fields: [
+      { name: "exam", label: t("Exam", "परीक्षा"), type: "relation", relation: { resource: "exam/exams", label: "label", search: true }, required: true },
       { name: "subject", label: t("Subject", "विषय"), type: "relation", relation: { resource: "people/subjects", label: "name", search: true }, required: true },
-      { name: "exam_name", label: t("Exam", "परीक्षा"), type: "text", required: true },
-      { name: "marks_obtained", label: t("Marks", "अंक"), type: "number", required: true },
-      { name: "max_marks", label: t("Out of", "पूर्णांक"), type: "number" },
+      { name: "max_theory", label: t("Theory max", "सैद्धांतिक पूर्णांक"), type: "number", required: true },
+      { name: "max_practical", label: t("Practical max (0 if none)", "प्रायोगिक पूर्णांक (न हो तो 0)"), type: "number" },
+      { name: "pass_marks", label: t("Pass marks", "उत्तीर्णांक"), type: "number", required: true },
+      { name: "date", label: t("Exam date", "परीक्षा तिथि"), type: "date" },
+      { name: "start_time", label: t("Start time (HH:MM)", "आरंभ समय (HH:MM)"), type: "text" },
+      { name: "duration_minutes", label: t("Duration (minutes)", "अवधि (मिनट)"), type: "number" },
+      { name: "sequence", label: t("Order", "क्रम"), type: "number" },
+    ],
+  },
+  {
+    name: "exam/scales", module: "exam", label: t("Grading scales", "ग्रेडिंग पैमाने"), perm: "exam.setup",
+    canCreate: true, canEdit: true, exportable: false,
+    columns: [
+      { key: "name", label: t("Scale", "पैमाना") },
+      { key: "kind", label: t("Type", "प्रकार"), type: "tag", options: SCALE_KIND },
+    ],
+    fields: [
+      { name: "name", label: t("Name (e.g. CBSE 8-point)", "नाम"), type: "text", required: true },
+      { name: "kind", label: t("Type", "प्रकार"), type: "select", options: SCALE_KIND, required: true },
+      { name: "bands", label: t("Grade bands", "ग्रेड श्रेणियाँ"), type: "rows", required: true, addLabel: t("Add band", "श्रेणी जोड़ें"), rowFields: [
+        { name: "grade", label: t("Grade", "ग्रेड"), type: "text", required: true },
+        { name: "min_percent", label: t("From %", "से %"), type: "number", required: true },
+        { name: "grade_point", label: t("Grade point", "ग्रेड पॉइंट"), type: "number" },
+        { name: "is_fail", label: t("Fail", "अनुत्तीर्ण"), type: "boolean" },
+      ] },
     ],
   },
 
@@ -861,7 +1027,7 @@ export const RESOURCES: ResourceDef[] = [
     searchable: true,
     filters: [
       { field: "program", label: t("Class / course", "कक्षा / पाठ्यक्रम"), relation: { resource: "people/programs", label: "name" } },
-      { field: "section", label: t("Section", "अनुभाग"), relation: { resource: "people/sections", label: "name" } },
+      { field: "section", label: t("Section", "अनुभाग"), relation: SECTION_REL },
       { field: "overdue", label: t("Show", "दिखाएँ"), options: [opt("true", "Overdue only (defaulters)", "केवल चूककर्ता"), opt("false", "Everyone", "सभी")] },
     ],
     columns: [
@@ -1196,6 +1362,10 @@ export const RESOURCES: ResourceDef[] = [
 ];
 
 export const PAGES: PageDef[] = [
+  { name: "attendance/mark", module: "attendance", label: t("Mark attendance", "उपस्थिति लगाएँ"), perm: "attendance.record.mark", path: "/attendance/mark" },
+  { name: "attendance/reports-page", module: "attendance", label: t("Attendance reports", "उपस्थिति रिपोर्ट"), perm: "attendance.report.view", path: "/attendance/reports" },
+  { name: "exam/marks-page", module: "exam", label: t("Enter marks", "अंक दर्ज करें"), perm: "exam.marks.enter", path: "/exam/marks" },
+  { name: "exam/results-page", module: "exam", label: t("Results & report cards", "परिणाम एवं रिपोर्ट कार्ड"), perm: "exam.result.view", path: "/exam/results" },
   { name: "fees/collect", module: "fees", label: t("Collect fees", "शुल्क जमा"), perm: "fees.receipt.manage", path: "/fees/collect" },
   { name: "fees/reports-page", module: "fees", label: t("Fee reports", "शुल्क रिपोर्ट"), perm: "fees.report.view", path: "/fees/reports" },
 ];

@@ -8,6 +8,7 @@ Demo data for local development and staging walkthroughs. Never run in prod.
 All demo users share DEMO_PASSWORD.
 """
 from datetime import timedelta
+from decimal import Decimal
 
 from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand
@@ -82,6 +83,7 @@ class Command(BaseCommand):
                 self._library(branch)
                 self._hostel(branch)
                 self._fees(branch)
+                self._academics(branch)
 
         self.stdout.write(self.style.SUCCESS(
             "Seeded abc (Basic, 1 branch) and pqr (Premium, branches patna + gaya).\n"
@@ -146,6 +148,79 @@ class Command(BaseCommand):
                     StudentGuardian.objects.create(
                         branch=branch, student=student, guardian=guardian, relation="father", is_primary=True
                     )
+
+    @staticmethod
+    def _academics(branch):
+        """Teacher login ↔ staff record, teaching allocation, holidays, a gate
+        device with cards, a month of attendance, and a graded Half-Yearly."""
+        import random
+        from datetime import date, timedelta
+
+        from apps.attendance import services as att
+        from apps.attendance.models import AttendanceCard, AttendanceDevice, Holiday
+        from apps.exam import services as exam_services
+        from apps.exam.models import Exam, ExamSubject, GradeBand, GradeScale
+        from apps.people.models import AcademicYear, Enrollment, Section, Staff, Subject, TeachingAssignment
+
+        year = AcademicYear.objects.get(is_current=True)
+        teacher = Staff.objects.get(branch=branch, employee_code=f"{branch.code.upper()}-T001")
+        user = User.objects.filter(email=f"teacher.{branch.code}@pqr.eraj.test").first()
+        if user and teacher.user_id is None:
+            teacher.user = user
+            teacher.save(update_fields=["user", "updated_at"])
+        for section in Section.objects.filter(branch=branch, academic_year=year):
+            maths = Subject.objects.get(branch=branch, code=f"{section.program.code}-MAT")
+            TeachingAssignment.objects.get_or_create(branch=branch, staff=teacher, subject=maths, section=section,
+                                                     defaults={"periods_per_week": 6})
+
+        for d, name, hi in [(date(year.start_date.year, 10, 2), "Gandhi Jayanti", "गांधी जयंती"),
+                            (date(year.start_date.year, 10, 20), "Dussehra", "दशहरा"),
+                            (date(year.start_date.year, 11, 8), "Diwali", "दीपावली"),
+                            (date(year.start_date.year, 11, 15), "Chhath Puja", "छठ पूजा")]:
+            Holiday.objects.get_or_create(branch=branch, date=d, defaults={"name": name, "name_hi": hi})
+
+        AttendanceDevice.objects.get_or_create(serial_no=f"{branch.code.upper()}-GATE-01",
+                                               defaults={"branch": branch, "name": "Main gate", "brand": "zkteco", "location": "Main gate"})
+        rng = random.Random(branch.code)
+        sections = list(Section.objects.filter(branch=branch, academic_year=year).order_by("program__sequence"))
+        for i, enr in enumerate(Enrollment.objects.filter(section__in=sections).select_related("student").order_by("pk"), start=1):
+            AttendanceCard.objects.get_or_create(branch=branch, code=f"{1000 + i}", defaults={"student": enr.student})
+
+        today = timezone.localdate()
+        start = today.replace(day=1) - timedelta(days=1)
+        start = start.replace(day=1)  # from the 1st of last month
+        for section in sections:
+            students = att.section_students(section)
+            d = start
+            while d < today:
+                if d not in att.non_working_days(branch, d, d) and not att.AttendanceRecord.objects.filter(section=section, date=d).exists():
+                    absent = [s.pk for s in students if rng.random() < (0.35 if s.admission_no.endswith("-005") else 0.06)]
+                    att.mark_section(section=section, on=d, statuses={}, absent=absent, by="seed", can_correct_past=True)
+                d += timedelta(days=1)
+
+        scale, created = GradeScale.objects.get_or_create(branch=branch, name="CBSE 8-point")
+        if created:
+            for grade, low, gp in [("A1", 91, 10), ("A2", 81, 9), ("B1", 71, 8), ("B2", 61, 7), ("C1", 51, 6), ("C2", 41, 5), ("D", 33, 4), ("E", 0, 0)]:
+                GradeBand.objects.create(scale=scale, grade=grade, min_percent=low, grade_point=gp, is_fail=grade == "E")
+        for section in sections:
+            program = section.program
+            half, created = Exam.objects.get_or_create(branch=branch, academic_year=year, program=program, name="Half-Yearly",
+                                                       defaults={"scale": scale, "weightage": 30, "sequence": 1})
+            Exam.objects.get_or_create(branch=branch, academic_year=year, program=program, name="Annual",
+                                       defaults={"scale": scale, "weightage": 70, "sequence": 2})
+            if not created:
+                continue
+            for n, subj in enumerate(Subject.objects.filter(branch=branch, program=program).order_by("code"), start=1):
+                es = ExamSubject.objects.create(branch=branch, exam=half, subject=subj, max_theory=80, max_practical=20,
+                                                pass_marks=33, sequence=n, date=year.start_date.replace(month=9, day=14 + n),
+                                                start_time="09:30")
+                rows = []
+                for s in att.section_students(section):
+                    if rng.random() < 0.04:
+                        rows.append({"student": s.pk, "status": "absent"})
+                    else:
+                        rows.append({"student": s.pk, "theory": Decimal(rng.randint(28, 78)), "practical": Decimal(rng.randint(12, 20))})
+                exam_services.save_marks(exam_subject=es, section=section, rows=rows, by="seed")
 
     @staticmethod
     def _fees(branch):

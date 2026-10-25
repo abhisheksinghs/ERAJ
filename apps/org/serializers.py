@@ -36,4 +36,4 @@ class BranchScopedSerializer(serializers.ModelSerializer):
 class BranchSerializer(serializers.ModelSerializer):
     class Meta:
         model = Branch
-        fields = ("id", "code", "name", "name_hi", "address", "phone", "email", "is_active")
+        fields = ("id", "code", "name", "name_hi", "address", "phone", "email", "logo", "is_active")
