@@ -1,6 +1,6 @@
 # Eraj — Project Status
 
-**Phase:** Planning Complete → Implementation (M0)
+**Phase:** Implementation — M0, M1 done; M2 next
 **Updated:** 2026-10-25
 **Target:** all modules running on staging by **2026-11-11** (owner on leave, full-time); client acceptance testing after that.
 **Scope source:** `.10x/specs/2026-10-25-eraj-v1-scope.md` (summary of the client scope doc)
@@ -8,7 +8,7 @@
 ## Blockers
 | # | Blocker | Owner | Needed by |
 |---|---|---|---|
-| B1 | Claude has no push access to `abhisheksinghs/eraj` — install the Claude GitHub App on the repo or reconnect GitHub in claude.ai settings | Abhishek | before first push (work continues locally until then) |
+| ~~B1~~ | ~~Push access~~ — GitHub connected by owner 2026-10-25 | — | — |
 | B2 | Staging hosting account (DigitalOcean BLR1, or a VPS) + domain/DNS for `*.staging` subdomains | Abhishek | ~2026-11-05 |
 | ~~B3~~ | ~~Branch model decision~~ — resolved 2026-10-25: branch rows inside client schema (ADR-001) | — | — |
 
@@ -20,7 +20,7 @@
 | Strategy | Done | cto/eraj-v1.md, product-manager/eraj-v1.md |
 | Design (ADRs) | Done | ADR-001 … ADR-006 |
 | Planning | Done | engineering-manager/eraj-v1.md (M0–M8), senior-engineer/eraj-v1.md |
-| Implementation | In progress | M0 done 2026-10-25; M1 in progress |
+| Implementation | In progress | M0, M1 done 2026-10-25; M2 next |
 | Verification | Not started | |
 | Delivery | Not started | |
 
@@ -28,8 +28,8 @@
 | ID | Due | Scope | State |
 |---|---|---|---|
 | M0 | 25 Oct | Dep fixes, Next upgrade, Refine shell builds | Done 25 Oct — Next 16.4.3 + React 19 + Refine 5/AntD 5 installed, `npm audit` 0, `next build` ok; psycopg2 2.9.13, WeasyPrint 70 (Hindi PDF verified), openpyxl |
-| M1 | 27 Oct | org, people, RBAC, branch mixin, fresh migrations, staff shell | In progress |
-| M2 | 30 Oct | Fees ledger, Library, Hostel + Mess + visitors | Not started |
+| M1 | 27 Oct | org, people, RBAC, branch mixin, fresh migrations, staff shell | Done 25 Oct — backend 63 Django + 23 pytest green; frontend `next build` ok; browser walkthrough 14/14 (e2e/smoke-m1.mjs) |
+| M2 | 30 Oct | Fees ledger, Library, Hostel + Mess + visitors | Next |
 | M3 | 2 Nov | Attendance, Exam, Timetable | Not started |
 | M4 | 5 Nov | HR, Payroll | Not started |
 | M5 | 7 Nov | Transport, Inventory | Not started |

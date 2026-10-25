@@ -1,10 +1,13 @@
 # Handoff
 
-**From:** Planning (2026-10-25) **To:** SDE (M0 → M1)
+**From:** M1 (2026-10-25) **To:** SDE — M2
 
-- Design approved by owner 2026-10-25: ADR-001 (branch rows), 002 (people registry + fresh
-  migrations), 003 (fees ledger), 004 (Refine + AntD), 005 (adapters + fakes), 006 (RBAC per branch).
-- Plan: `decisions/engineering-manager/eraj-v1.md` (M0–M8); approach:
-  `decisions/senior-engineer/eraj-v1.md`; standards: `decisions/staff-engineer/eraj-v1.md`.
-- Start with M0 (dependency fixes, Next upgrade, Refine shell builds), then M1 foundation.
-- Commits: author Abhishek Singh, no AI attribution. Push blocked (status.md B1) — commit locally.
+- M0 + M1 done, committed and pushed. Verification: 63 Django + 23 pytest tests, `next build`,
+  browser walkthrough `e2e/smoke-m1.mjs` 14/14.
+- M2 order: Fees ledger first (ADR-003: FeeHead, FeePlan, Charge, Concession, gap-free Receipt,
+  late fine, dues/defaulters, Tally export), then Library fines → Fees, then Hostel blocks +
+  Mess (contractor, monthly + per-day, rebate, guest meals, headcount, contractor bill) +
+  visitors/outpass. One test per scope-doc acceptance scenario.
+- Add screens to `frontend/lib/resources.ts`; custom screens (fee collection counter) as
+  their own pages under `app/(staff)/fees/…`.
+- Commits: author Abhishek Singh, no AI attribution.
