@@ -1,8 +1,8 @@
 import { headers } from "next/headers";
 
 /** Tenant slug the middleware resolved for this request (null on the root domain). */
-export function getTenantSlug(): string | null {
-  return headers().get("x-tenant-slug");
+export async function getTenantSlug(): Promise<string | null> {
+  return (await headers()).get("x-tenant-slug");
 }
 
 const BACKEND_ROOT = process.env.ERAJ_BACKEND_ROOT ?? "localhost:8000";

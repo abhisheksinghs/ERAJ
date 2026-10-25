@@ -25,8 +25,8 @@
 ## Milestones
 | ID | Due | Scope | State |
 |---|---|---|---|
-| M0 | 25 Oct | Dep fixes, Next upgrade, Refine shell builds | In progress |
-| M1 | 27 Oct | org, people, RBAC, branch mixin, fresh migrations, staff shell | Not started |
+| M0 | 25 Oct | Dep fixes, Next upgrade, Refine shell builds | Done 25 Oct — Next 16.4.3 + React 19 + Refine 5/AntD 5 installed, `npm audit` 0, `next build` ok; psycopg2 2.9.13, WeasyPrint 70 (Hindi PDF verified), openpyxl |
+| M1 | 27 Oct | org, people, RBAC, branch mixin, fresh migrations, staff shell | In progress |
 | M2 | 30 Oct | Fees ledger, Library, Hostel + Mess + visitors | Not started |
 | M3 | 2 Nov | Attendance, Exam, Timetable | Not started |
 | M4 | 5 Nov | HR, Payroll | Not started |
@@ -39,6 +39,5 @@
 
 ## Known defects found in discovery
 - `apps/fees` models drift from migration `0001` (`term`, `payer_reference`) — `makemigrations --check` fails
-- `psycopg2-binary==2.9.9` fails to import on Python 3.13 (needs ≥2.9.10)
-- Frontend: Next 14.2.35 — `npm audit`: 1 critical, 2 high
-- `frontend/*.tsbuildinfo` not gitignored
+- ~~psycopg2 2.9.9 on Py 3.13~~ fixed M0 · ~~Next 14 advisories~~ fixed M0 · ~~tsbuildinfo~~ fixed M0
+- Test suites pass per module (17/17) but error when Django test modules run in one invocation: public-schema `Module`/`Client` fixtures collide (`core_module_code_key`). Pre-existing; fix in M1 fixture rework.

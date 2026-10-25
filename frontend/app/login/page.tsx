@@ -5,7 +5,7 @@ import { getTenantSlug, postToBackend } from "@/lib/tenant";
 
 async function login(formData: FormData) {
   "use server";
-  const tenantSlug = getTenantSlug();
+  const tenantSlug = await getTenantSlug();
   if (!tenantSlug) redirect("/login?e=notenant");
 
   const res = await postToBackend<{ access: string }>(tenantSlug, "/api/auth/login/", {
@@ -14,16 +14,17 @@ async function login(formData: FormData) {
   });
   if (!res.ok) redirect("/login?e=bad");
 
-  setAccessToken(res.data.access);
+  await setAccessToken(res.data.access);
   redirect("/");
 }
 
-export default function LoginPage({
+export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: { [key: string]: string | string[] | undefined };
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
-  const tenantSlug = getTenantSlug();
+  const sp = await searchParams;
+  const tenantSlug = await getTenantSlug();
   if (!tenantSlug) {
     return (
       <div className="notice notice--no-tenant">
@@ -35,7 +36,7 @@ export default function LoginPage({
   return (
     <form action={login} className="card">
       <h1>Sign in — {tenantSlug}</h1>
-      {searchParams.e === "bad" && <p className="notice">Wrong email or password.</p>}
+      {sp.e === "bad" && <p className="notice">Wrong email or password.</p>}
       <label>
         Email
         <input name="email" type="email" required autoComplete="username" />

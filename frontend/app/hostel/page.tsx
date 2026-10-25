@@ -13,12 +13,12 @@ interface Room {
 }
 
 export default async function HostelPage() {
-  const tenantSlug = getTenantSlug();
+  const tenantSlug = await getTenantSlug();
   if (!tenantSlug) {
     return <div className="notice notice--no-tenant">No tenant resolved for this request.</div>;
   }
 
-  const token = getAccessToken();
+  const token = (await getAccessToken());
   if (!token) redirect("/login");
 
   const result = await fetchFromBackend<Room[]>(tenantSlug, "/api/hostel/rooms/", token);

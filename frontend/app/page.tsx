@@ -3,8 +3,8 @@ import Link from "next/link";
 import { getAccessToken } from "@/lib/auth";
 import { getTenantSlug } from "@/lib/tenant";
 
-export default function HomePage() {
-  const tenantSlug = getTenantSlug();
+export default async function HomePage() {
+  const tenantSlug = await getTenantSlug();
 
   if (!tenantSlug) {
     return (
@@ -16,7 +16,7 @@ export default function HomePage() {
     );
   }
 
-  const signedIn = getAccessToken() !== null;
+  const signedIn = (await getAccessToken()) !== null;
 
   return (
     <div>

@@ -7,6 +7,11 @@ RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
 
 FROM python:3.12-slim
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 DJANGO_ENV=prod
+# WeasyPrint (receipts, report cards, payslips) needs Pango at runtime; Noto
+# fonts carry Devanagari so Hindi PDFs render instead of printing boxes.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libpango-1.0-0 libpangoft2-1.0-0 fonts-noto-core \
+    && rm -rf /var/lib/apt/lists/*
 RUN useradd --system --uid 1000 --create-home app
 WORKDIR /app
 COPY --from=build /install /usr/local

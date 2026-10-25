@@ -7,8 +7,8 @@ export const metadata: Metadata = {
   description: "One platform, every institution.",
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
-  const tenantSlug = getTenantSlug();
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const tenantSlug = await getTenantSlug();
 
   return (
     <html lang="en">

@@ -14,11 +14,11 @@ const COOKIE_OPTS = {
 };
 
 /** Readable anywhere (Server Components included). */
-export function getAccessToken(): string | null {
-  return cookies().get(ACCESS)?.value ?? null;
+export async function getAccessToken(): Promise<string | null> {
+  return (await cookies()).get(ACCESS)?.value ?? null;
 }
 
 /** Server Actions / Route Handlers only (Server Components cannot set cookies). */
-export function setAccessToken(token: string): void {
-  cookies().set(ACCESS, token, COOKIE_OPTS);
+export async function setAccessToken(token: string): Promise<void> {
+  (await cookies()).set(ACCESS, token, COOKIE_OPTS);
 }

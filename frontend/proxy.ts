@@ -10,7 +10,7 @@ import { NextRequest, NextResponse } from "next/server";
  * one Next.js app serves every module for a given tenant, exactly as one
  * Django app serves every module for a given tenant schema.
  *
- * This middleware's only job: figure out which tenant a request is for,
+ * This proxy's only job: figure out which tenant a request is for,
  * and make that available to every Server Component and API route via a
  * request header (`x-tenant-slug`). It does NOT do auth or module
  * permission checks — those stay server-side, enforced by the Django
@@ -51,7 +51,7 @@ export function resolveTenantSlug(host: string | null): string | null {
   return null;
 }
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const host = request.headers.get("host");
   const tenantSlug = resolveTenantSlug(host);
 
