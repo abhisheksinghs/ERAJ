@@ -17,4 +17,4 @@
 ## Active features
 | Slug | File | State |
 |---|---|---|
-| eraj-v1 | (pending design approval) | — |
+| eraj-v1 | eraj-v1.md | Design approved 2026-10-25 (ADR-001–006) |
