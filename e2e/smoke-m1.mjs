@@ -109,7 +109,7 @@ try {
   const lib = await login("librarian.patna@pqr.eraj.test");
   const libSider = await lib.page.locator(".ant-layout-sider").innerText();
   check("librarian menu has Library, not Fees/Settings", libSider.includes("Library") && !libSider.includes("Fees") && !libSider.includes("Settings"), libSider.replace(/\n/g, " | "));
-  await lib.page.goto(`${BASE}/fees/payments`);
+  await lib.page.goto(`${BASE}/fees/receipts`);
   await lib.page.waitForSelector("text=Your role does not include this screen.", { timeout: 15000 });
   check("librarian blocked from Fees screen", true);
   await lib.page.goto(`${BASE}/library/fines`);

@@ -1,8 +1,9 @@
 "use client";
 
 import { DeleteButton, EditButton, List, useTable } from "@refinedev/antd";
+import { DownloadOutlined } from "@ant-design/icons";
 import { useCustomMutation, useInvalidate } from "@refinedev/core";
-import { Alert, App, Button, Input, Popconfirm, Select, Space, Table } from "antd";
+import { Alert, App, Button, Dropdown, Input, Modal, Popconfirm, Select, Space, Table } from "antd";
 import { useState } from "react";
 
 import { getPath, RelationSelect, renderCell } from "@/components/staff/fields";
@@ -22,7 +23,9 @@ export function ResourceList({ def }: { def: ResourceDef }) {
   const { mutateAsync } = useCustomMutation();
   const [busy, setBusy] = useState<string | null>(null);
 
-  const { tableProps, setFilters } = useTable<Row>({
+  const [prompting, setPrompting] = useState<{ action: ActionDef; row: Row; value: string } | null>(null);
+
+  const { tableProps, setFilters, filters, sorters } = useTable<Row>({
     resource: def.name,
     syncWithLocation: true,
     pagination: { pageSize: 25 },
@@ -31,14 +34,38 @@ export function ResourceList({ def }: { def: ResourceDef }) {
 
   const canManage = can(`${def.perm}.manage`) && !allBranches;
 
-  async function runAction(action: ActionDef, row: Row) {
+  function exportUrl(format: "xlsx" | "csv") {
+    const q = new URLSearchParams({ format });
+    for (const f of filters) {
+      if (!("field" in f) || f.value === undefined || f.value === null || f.value === "") continue;
+      q.set(f.field === "q" ? "search" : f.field, String(f.value));
+    }
+    if (sorters.length) q.set("ordering", sorters.map((s) => (s.order === "desc" ? `-${s.field}` : s.field)).join(","));
+    return `${API}/${def.name}?${q}`;
+  }
+
+  function startAction(action: ActionDef, row: Row) {
+    if (action.method === "link") {
+      const href = (action.href ?? "").replace("{id}", String(row.id));
+      if (action.newTab) window.open(href, "_blank", "noopener");
+      else window.location.assign(href);
+      return;
+    }
+    if (action.prompt) {
+      setPrompting({ action, row, value: "" });
+      return;
+    }
+    void runAction(action, row);
+  }
+
+  async function runAction(action: ActionDef, row: Row, extra?: Record<string, unknown>) {
     const key = `${action.key}-${row.id}`;
     setBusy(key);
     try {
       await mutateAsync({
         url: `${API}/${def.name}/${row.id}/${action.path ? `${action.path}/` : ""}`,
-        method: action.method,
-        values: action.body ?? {},
+        method: action.method as "post" | "patch",
+        values: { ...(action.body ?? {}), ...(extra ?? {}) },
         successNotification: () => ({ type: "success", message: tr(UI.done, lang) }),
         errorNotification: (err) => ({ type: "error", message: err?.message ?? "Error" }),
       });
@@ -60,6 +87,18 @@ export function ResourceList({ def }: { def: ResourceDef }) {
       headerButtons={({ defaultButtons }) => (
         <Space wrap>
           {def.importable && canManage && <ImportModal resource={def.name} />}
+          {def.exportable !== false && (
+            <Dropdown
+              menu={{
+                items: [
+                  { key: "xlsx", label: <a href={exportUrl("xlsx")}>Excel (.xlsx)</a> },
+                  { key: "csv", label: <a href={exportUrl("csv")}>CSV</a> },
+                ],
+              }}
+            >
+              <Button icon={<DownloadOutlined />}>{tr(UI.export, lang)}</Button>
+            </Dropdown>
+          )}
           {defaultButtons}
         </Space>
       )}
@@ -118,13 +157,13 @@ export function ResourceList({ def }: { def: ResourceDef }) {
                   .map((a) => {
                     const btn = (
                       <Button size="small" danger={a.danger} loading={busy === `${a.key}-${row.id}`}
-                        onClick={a.confirm ? undefined : () => runAction(a, row)}>
+                        onClick={a.confirm ? undefined : () => startAction(a, row)}>
                         {tr(a.label, lang)}
                       </Button>
                     );
                     return a.confirm ? (
                       <Popconfirm key={a.key} title={tr(a.confirm, lang)} okText={tr(UI.yes, lang)} cancelText={tr(UI.no, lang)}
-                        onConfirm={() => runAction(a, row)}>
+                        onConfirm={() => startAction(a, row)}>
                         {btn}
                       </Popconfirm>
                     ) : (
@@ -143,6 +182,29 @@ export function ResourceList({ def }: { def: ResourceDef }) {
           />
         )}
       </Table>
+      <Modal
+        open={prompting !== null}
+        title={prompting ? `${tr(prompting.action.label, lang)} — ${prompting.action.prompt ? tr(prompting.action.prompt.label, lang) : ""}` : ""}
+        okText={prompting ? tr(prompting.action.label, lang) : undefined}
+        okButtonProps={{ danger: prompting?.action.danger, disabled: !prompting?.value.trim() }}
+        cancelText={tr(UI.no, lang)}
+        onCancel={() => setPrompting(null)}
+        onOk={async () => {
+          if (!prompting?.action.prompt) return;
+          const { action, row, value } = prompting;
+          setPrompting(null);
+          await runAction(action, row, { [action.prompt!.field]: value.trim() });
+        }}
+        destroyOnHidden
+      >
+        <Input.TextArea
+          autoFocus
+          rows={3}
+          maxLength={200}
+          value={prompting?.value ?? ""}
+          onChange={(e) => setPrompting((p) => (p ? { ...p, value: e.target.value } : p))}
+        />
+      </Modal>
     </List>
   );
 }

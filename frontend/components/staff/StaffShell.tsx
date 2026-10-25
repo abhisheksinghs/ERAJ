@@ -18,7 +18,7 @@ import { StaffHeader } from "@/components/staff/StaffHeader";
 import { UI } from "@/lib/i18n";
 import { dataProvider, SUBSCRIPTION_EVENT } from "@/lib/refine/dataProvider";
 import { SessionProvider, useSession } from "@/lib/refine/session";
-import { MODULES, RESOURCES, tr } from "@/lib/resources";
+import { MODULES, PAGES, RESOURCES, tr } from "@/lib/resources";
 
 const VERB: Record<string, string> = {
   list: "view", show: "view", create: "manage", edit: "manage", delete: "manage", clone: "manage",
@@ -63,10 +63,12 @@ function Shell({ children }: { children: React.ReactNode }) {
 
   const resources = useMemo<ResourceProps[]>(() => {
     const visible = RESOURCES.filter((r) => can(`${r.perm}.view`));
-    const modules = MODULES.filter((m) => visible.some((r) => r.module === m.key));
+    const pages = PAGES.filter((p) => can(p.perm));
+    const modules = MODULES.filter((m) => visible.some((r) => r.module === m.key) || pages.some((p) => p.module === m.key));
     return [
       { name: "dashboard", list: "/dashboard", meta: { label: tr(UI.dashboard, lang), icon: icon("DashboardOutlined") } },
       ...modules.map((m) => ({ name: m.key, meta: { label: tr(m.label, lang), icon: icon(m.icon) } })),
+      ...pages.map((p) => ({ name: p.name, list: p.path, meta: { label: tr(p.label, lang), parent: p.module } })),
       ...visible.map((r) => ({
         name: r.name,
         list: `/${r.name}`,
@@ -81,6 +83,8 @@ function Shell({ children }: { children: React.ReactNode }) {
     () => ({
       can: async ({ resource, action }) => {
         if (!resource || resource === "dashboard") return { can: true };
+        const page = PAGES.find((p) => p.name === resource);
+        if (page) return { can: can(page.perm) };
         const def = RESOURCES.find((r) => r.name === resource);
         if (!def) return { can: MODULES.some((m) => m.key === resource) };
         return { can: can(`${def.perm}.${VERB[action] ?? action}`) };

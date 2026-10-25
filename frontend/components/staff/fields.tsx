@@ -1,7 +1,8 @@
 "use client";
 
 import { useSelect } from "@refinedev/antd";
-import { DatePicker, Form, Input, InputNumber, Select, type SelectProps, Switch, Tag, Typography } from "antd";
+import { DeleteOutlined, PlusOutlined } from "@ant-design/icons";
+import { Button, DatePicker, Form, Input, InputNumber, Select, type SelectProps, Space, Switch, Tag, Typography } from "antd";
 import dayjs from "dayjs";
 
 import type { ColumnDef, FieldDef } from "@/lib/resources";
@@ -47,10 +48,48 @@ export function RelationSelect({
   );
 }
 
-export function FormField({ field, lang }: { field: FieldDef; lang: Lang }) {
+/** An editable list of sub-records (e.g. a fee plan's instalments), one line per row. */
+function RowsField({ field, lang }: { field: FieldDef; lang: Lang }) {
+  const cols = field.rowFields ?? [];
+  return (
+    <Form.Item label={tr(field.label, lang)} required={field.required} extra={field.help ? tr(field.help, lang) : undefined}>
+      <Form.List
+        name={field.name}
+        rules={field.required ? [{
+          validator: async (_, rows) => {
+            if (!rows || rows.length === 0) throw new Error(`${tr(field.label, lang)}?`);
+          },
+        }] : []}
+      >
+        {(items, { add, remove }, { errors }) => (
+          <>
+            {items.map(({ key, name }, index) => (
+              <Space key={key} align="start" wrap style={{ display: "flex", marginBottom: 4 }}>
+                {cols.map((c) => (
+                  <div key={c.name} style={{ width: c.type === "number" ? 80 : c.type === "text" ? 240 : 160 }}>
+                    <FormField field={{ ...c, name: [name, c.name] as unknown as string }} lang={lang} compact hideLabel={index > 0} />
+                  </div>
+                ))}
+                <Button aria-label="remove" icon={<DeleteOutlined />} onClick={() => remove(name)} style={{ marginTop: index === 0 ? 30 : 0 }} />
+              </Space>
+            ))}
+            <Button type="dashed" icon={<PlusOutlined />} onClick={() => add({ sequence: items.length + 1 })}>
+              {field.addLabel ? tr(field.addLabel, lang) : "+"}
+            </Button>
+            <Form.ErrorList errors={errors} />
+          </>
+        )}
+      </Form.List>
+    </Form.Item>
+  );
+}
+
+export function FormField({ field, lang, compact, hideLabel }: { field: FieldDef; lang: Lang; compact?: boolean; hideLabel?: boolean }) {
+  if (field.type === "rows") return <RowsField field={field} lang={lang} />;
   const common = {
+    style: compact ? { marginBottom: 8 } : undefined,
     name: field.name,
-    label: tr(field.label, lang),
+    label: hideLabel ? undefined : tr(field.label, lang),
     rules: field.required ? [{ required: true, message: `${tr(field.label, lang)}?` }] : [],
     extra: field.help ? tr(field.help, lang) : undefined,
   };

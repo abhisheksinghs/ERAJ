@@ -11,7 +11,7 @@ export type T = { en: string; hi: string };
 
 export type FieldType =
   | "text" | "textarea" | "number" | "money" | "date" | "email" | "password"
-  | "select" | "multiselect" | "relation" | "boolean";
+  | "select" | "multiselect" | "relation" | "boolean" | "rows";
 
 export interface Option {
   value: string;
@@ -28,6 +28,8 @@ export interface FieldDef {
   createOnly?: boolean;
   editOnly?: boolean;
   help?: T;
+  rowFields?: FieldDef[]; // for type "rows": an editable table of sub-records (e.g. instalments)
+  addLabel?: T;
 }
 
 export type ColumnType = "text" | "number" | "money" | "date" | "datetime" | "bool" | "tag";
@@ -44,8 +46,11 @@ export interface ActionDef {
   key: string;
   label: T;
   perm: string;
-  method: "post" | "patch";
+  method: "post" | "patch" | "link";
   path: string; // relative to the resource item, e.g. "return" → <resource>/<id>/return/
+  href?: string; // method "link": URL with {id}, e.g. "/api/proxy/fees/receipts/{id}/pdf"
+  newTab?: boolean;
+  prompt?: { field: string; label: T }; // ask for a value (e.g. a reason) and send it in the body
   body?: Record<string, unknown>;
   confirm?: T;
   danger?: boolean;
@@ -75,7 +80,17 @@ export interface ResourceDef {
   filters?: FilterDef[];
   importable?: boolean;
   searchable?: boolean;
+  exportable?: boolean; // Excel/CSV download of the filtered list (default true)
   defaultSort?: { field: string; order: "asc" | "desc" };
+}
+
+/** Hand-built screens (not generated from a registry entry). */
+export interface PageDef {
+  name: string; // menu identifier, e.g. "fees/collect"
+  module: string;
+  label: T;
+  perm: string; // full permission, e.g. "fees.receipt.manage"
+  path: string;
 }
 
 export interface ModuleDef {
@@ -526,36 +541,193 @@ export const RESOURCES: ResourceDef[] = [
 
   // ------------------------------------------------------------ fees
   {
-    name: "fees/structures", module: "fees", label: t("Fee structures", "शुल्क संरचना"), perm: "fees.structure",
-    searchable: true, canCreate: true, canEdit: true, canDelete: true,
+    name: "fees/accounts", module: "fees", label: t("Dues & defaulters", "बकाया एवं चूककर्ता"), perm: "fees.account",
+    searchable: true,
+    filters: [
+      { field: "program", label: t("Class / course", "कक्षा / पाठ्यक्रम"), relation: { resource: "people/programs", label: "name" } },
+      { field: "section", label: t("Section", "अनुभाग"), relation: { resource: "people/sections", label: "name" } },
+      { field: "overdue", label: t("Show", "दिखाएँ"), options: [opt("true", "Overdue only (defaulters)", "केवल चूककर्ता"), opt("false", "Everyone", "सभी")] },
+    ],
     columns: [
-      { key: "name", label: t("Name", "नाम") },
-      { key: "term", label: t("Term", "सत्र") },
+      { key: "admission_no", label: t("Admission no.", "प्रवेश सं.") },
+      { key: "full_name", label: t("Student", "छात्र"), sorter: true },
+      { key: "program", label: t("Class", "कक्षा") },
+      { key: "section", label: t("Section", "अनुभाग") },
+      { key: "guardian_name", label: t("Guardian", "अभिभावक") },
+      { key: "guardian_phone", label: t("Guardian phone", "अभिभावक फ़ोन") },
+      { key: "total_charged", label: t("Charged", "देय"), type: "money" },
+      { key: "total_paid", label: t("Paid", "भुगतान"), type: "money" },
+      { key: "outstanding", label: t("Outstanding", "बकाया"), type: "money", sorter: true },
+      { key: "overdue", label: t("Overdue", "अतिदेय"), type: "money", sorter: true },
+    ],
+    actions: [
+      { key: "collect", label: t("Collect", "जमा करें"), perm: "fees.receipt.manage", method: "link", path: "", href: "/fees/collect?student={id}" },
+    ],
+  },
+  {
+    name: "fees/receipts", module: "fees", label: t("Receipts", "रसीदें"), perm: "fees.receipt",
+    searchable: true,
+    filters: [{ field: "mode", label: t("Mode", "माध्यम"), options: [
+      opt("cash", "Cash", "नकद"), opt("cheque", "Cheque", "चेक"), opt("dd", "Demand draft", "डिमांड ड्राफ्ट"),
+      opt("upi", "UPI", "UPI"), opt("bank_transfer", "Bank transfer", "बैंक हस्तांतरण")] },
+      { field: "cancelled", label: t("Status", "स्थिति"), options: [opt("false", "Valid", "मान्य"), opt("true", "Cancelled", "रद्द")] }],
+    columns: [
+      { key: "number", label: t("Receipt no.", "रसीद सं.") },
+      { key: "date", label: t("Date", "तिथि"), type: "date", sorter: true },
+      { key: "admission_no", label: t("Admission no.", "प्रवेश सं.") },
+      { key: "student_name", label: t("Student", "छात्र") },
+      { key: "mode", label: t("Mode", "माध्यम"), type: "tag" },
+      { key: "reference", label: t("Reference", "संदर्भ") },
       { key: "amount", label: t("Amount", "राशि"), type: "money", sorter: true },
+      { key: "is_cancelled", label: t("Cancelled", "रद्द"), type: "bool" },
+    ],
+    actions: [
+      { key: "print", label: t("Print", "प्रिंट"), perm: "fees.receipt.view", method: "link", path: "", href: "/api/proxy/fees/receipts/{id}/pdf", newTab: true },
+      { key: "cancel", label: t("Cancel", "रद्द करें"), perm: "fees.receipt.cancel", method: "post", path: "cancel", danger: true,
+        prompt: { field: "reason", label: t("Reason for cancelling", "रद्द करने का कारण") }, visibleWhen: { field: "is_cancelled", equals: false } },
+    ],
+  },
+  {
+    name: "fees/charges", module: "fees", label: t("Student charges", "छात्र देय"), perm: "fees.charge",
+    searchable: true, canCreate: true, createEndpoint: "fees/charges/adjust",
+    filters: [
+      { field: "head", label: t("Fee head", "शुल्क मद"), relation: { resource: "fees/heads", label: "name" } },
+      { field: "source_type", label: t("Source", "स्रोत"), options: [
+        opt("plan", "Fee plan", "शुल्क योजना"), opt("hostel", "Hostel", "छात्रावास"), opt("mess", "Mess", "मेस"), opt("guest_meal", "Guest meal", "अतिथि भोजन"),
+        opt("transport", "Transport", "परिवहन"), opt("library", "Library", "पुस्तकालय"), opt("late_fine", "Late fine", "विलंब शुल्क"),
+        opt("manual", "Manual", "मैनुअल")] },
+    ],
+    columns: [
+      { key: "admission_no", label: t("Admission no.", "प्रवेश सं.") },
+      { key: "student_name", label: t("Student", "छात्र") },
+      { key: "head_name", label: t("Head", "मद") },
+      { key: "description", label: t("Description", "विवरण") },
       { key: "due_date", label: t("Due", "नियत तिथि"), type: "date", sorter: true },
+      { key: "net", label: t("Amount", "राशि"), type: "money" },
+      { key: "paid", label: t("Paid", "भुगतान"), type: "money" },
+      { key: "outstanding", label: t("Outstanding", "बकाया"), type: "money" },
     ],
     fields: [
-      { name: "name", label: t("Name", "नाम"), type: "text", required: true },
-      { name: "term", label: t("Term", "सत्र"), type: "text" },
-      { name: "amount", label: t("Amount (₹)", "राशि (₹)"), type: "money", required: true },
+      { name: "student", label: t("Student", "छात्र"), type: "relation", relation: STUDENT_REL, required: true },
+      { name: "head", label: t("Fee head", "शुल्क मद"), type: "relation", relation: { resource: "fees/heads", label: "name" }, required: true },
+      { name: "amount", label: t("Amount (₹, negative for a credit note)", "राशि (₹, क्रेडिट के लिए ऋणात्मक)"), type: "number", required: true },
+      { name: "description", label: t("Description", "विवरण"), type: "text", required: true },
       { name: "due_date", label: t("Due date", "नियत तिथि"), type: "date" },
     ],
   },
   {
-    name: "fees/payments", module: "fees", label: t("Collections", "संग्रह"), perm: "fees.payment",
+    name: "fees/concessions", module: "fees", label: t("Concessions", "रियायतें"), perm: "fees.concession",
     searchable: true, canCreate: true,
+    filters: [{ field: "status", label: t("Status", "स्थिति"), options: [
+      opt("pending", "Waiting for approval", "स्वीकृति हेतु"), opt("approved", "Approved", "स्वीकृत"), opt("rejected", "Rejected", "अस्वीकृत")] }],
     columns: [
-      { key: "receipt_no", label: t("Receipt no.", "रसीद सं.") },
-      { key: "payer_name", label: t("Paid by", "भुगतानकर्ता") },
-      { key: "payer_reference", label: t("Admission / roll no.", "प्रवेश / अनुक्रमांक") },
-      { key: "amount", label: t("Amount", "राशि"), type: "money", sorter: true },
-      { key: "created_at", label: t("Date", "तिथि"), type: "datetime", sorter: true },
+      { key: "admission_no", label: t("Admission no.", "प्रवेश सं.") },
+      { key: "student_name", label: t("Student", "छात्र") },
+      { key: "head_name", label: t("Head", "मद") },
+      { key: "kind", label: t("Type", "प्रकार"), type: "tag", options: [opt("percent", "%", "%"), opt("fixed", "Fixed ₹", "निश्चित ₹")] },
+      { key: "value", label: t("Value", "मान"), type: "number" },
+      { key: "reason", label: t("Reason", "कारण"), type: "tag" },
+      { key: "status", label: t("Status", "स्थिति"), type: "tag" },
+      { key: "decided_by", label: t("Decided by", "निर्णयकर्ता") },
     ],
     fields: [
-      { name: "fee_structure", label: t("Fee", "शुल्क"), type: "relation", relation: { resource: "fees/structures", label: "name" }, required: true },
-      { name: "payer_name", label: t("Paid by", "भुगतानकर्ता"), type: "text", required: true },
-      { name: "payer_reference", label: t("Admission / roll no.", "प्रवेश / अनुक्रमांक"), type: "text" },
-      { name: "amount", label: t("Amount (₹)", "राशि (₹)"), type: "money", required: true },
+      { name: "student", label: t("Student", "छात्र"), type: "relation", relation: STUDENT_REL, required: true },
+      { name: "head", label: t("Fee head", "शुल्क मद"), type: "relation", relation: { resource: "fees/heads", label: "name" }, required: true },
+      { name: "academic_year", label: t("Academic year", "शैक्षणिक वर्ष"), type: "relation", relation: { resource: "people/academic-years", label: "name" }, required: true },
+      { name: "kind", label: t("Type", "प्रकार"), type: "select", options: [opt("percent", "Percentage", "प्रतिशत"), opt("fixed", "Fixed amount per instalment", "प्रति किस्त निश्चित राशि")], required: true },
+      { name: "value", label: t("Value (% or ₹)", "मान (% या ₹)"), type: "number", required: true },
+      { name: "reason", label: t("Reason", "कारण"), type: "select", required: true, options: [
+        opt("sibling", "Sibling", "भाई-बहन"), opt("staff_ward", "Staff ward", "कर्मचारी आश्रित"), opt("merit", "Merit", "मेधा"),
+        opt("rte", "RTE", "RTE"), opt("other", "Other", "अन्य")] },
+      { name: "note", label: t("Note", "टिप्पणी"), type: "text" },
+    ],
+    actions: [
+      { key: "approve", label: t("Approve", "स्वीकृत करें"), perm: "fees.concession.approve", method: "post", path: "approve", visibleWhen: { field: "status", equals: "pending" } },
+      { key: "reject", label: t("Reject", "अस्वीकार करें"), perm: "fees.concession.approve", method: "post", path: "reject", danger: true, visibleWhen: { field: "status", equals: "pending" } },
+    ],
+  },
+  {
+    name: "fees/plans", module: "fees", label: t("Fee plans", "शुल्क योजनाएँ"), perm: "fees.plan",
+    searchable: true, canCreate: true, canEdit: true, canDelete: true,
+    columns: [
+      { key: "name", label: t("Plan", "योजना") },
+      { key: "program_name", label: t("Class / course", "कक्षा / पाठ्यक्रम") },
+      { key: "head_name", label: t("Head", "मद") },
+      { key: "total", label: t("Total per student", "प्रति छात्र कुल"), type: "money" },
+    ],
+    fields: [
+      { name: "name", label: t("Plan name", "योजना नाम"), type: "text", required: true },
+      { name: "academic_year", label: t("Academic year", "शैक्षणिक वर्ष"), type: "relation", relation: { resource: "people/academic-years", label: "name" }, required: true },
+      { name: "program", label: t("Class / course", "कक्षा / पाठ्यक्रम"), type: "relation", relation: { resource: "people/programs", label: "name" }, required: true },
+      { name: "term", label: t("Term / semester (optional)", "सत्र / सेमेस्टर (वैकल्पिक)"), type: "relation", relation: { resource: "people/terms", label: "name" } },
+      { name: "head", label: t("Fee head", "शुल्क मद"), type: "relation", relation: { resource: "fees/heads", label: "name" }, required: true },
+      { name: "instalments", label: t("Instalments", "किस्तें"), type: "rows", required: true, addLabel: t("Add instalment", "किस्त जोड़ें"), rowFields: [
+        { name: "sequence", label: t("No.", "क्रम"), type: "number", required: true },
+        { name: "label", label: t("Label (e.g. Q1 Apr–Jun)", "नाम (उदा. Q1)"), type: "text", required: true },
+        { name: "due_date", label: t("Due date", "नियत तिथि"), type: "date", required: true },
+        { name: "amount", label: t("Amount (₹)", "राशि (₹)"), type: "money", required: true },
+      ] },
+    ],
+    actions: [
+      { key: "apply", label: t("Bill enrolled students", "नामांकित छात्रों पर लागू करें"), perm: "fees.plan.manage", method: "post", path: "apply",
+        confirm: t("Add this plan's instalments to every enrolled student who doesn't have them yet?", "यह योजना सभी नामांकित छात्रों पर लागू करें?") },
+    ],
+  },
+  {
+    name: "fees/heads", module: "fees", label: t("Fee heads", "शुल्क मद"), perm: "fees.head",
+    searchable: true, canCreate: true, canEdit: true,
+    columns: [
+      { key: "code", label: t("Code", "कोड") },
+      { key: "name", label: t("Name", "नाम") },
+      { key: "kind", label: t("Type", "प्रकार"), type: "tag" },
+      { key: "late_fine_mode", label: t("Late fine", "विलंब शुल्क"), type: "tag" },
+      { key: "late_fine_amount", label: t("Fine (₹)", "शुल्क (₹)"), type: "money" },
+      { key: "grace_days", label: t("Grace days", "छूट दिन"), type: "number" },
+      { key: "is_active", label: t("Active", "सक्रिय"), type: "bool" },
+    ],
+    fields: [
+      { name: "code", label: t("Code", "कोड"), type: "text", required: true },
+      { name: "name", label: t("Name", "नाम"), type: "text", required: true },
+      { name: "name_hi", label: t("Name in Hindi", "हिन्दी में नाम"), type: "text" },
+      { name: "kind", label: t("Type", "प्रकार"), type: "select", options: [
+        opt("tuition", "Tuition", "शिक्षण"), opt("admission", "Admission", "प्रवेश"), opt("exam", "Exam", "परीक्षा"),
+        opt("development", "Development", "विकास"), opt("transport", "Transport", "परिवहन"), opt("hostel", "Hostel", "छात्रावास"),
+        opt("mess", "Mess", "मेस"), opt("library_fine", "Library fine", "पुस्तकालय जुर्माना"),
+        opt("late_fine", "Late fine", "विलंब शुल्क"), opt("other", "Other", "अन्य")] },
+      { name: "late_fine_mode", label: t("Late fine", "विलंब शुल्क"), type: "select", options: [
+        opt("none", "No late fine", "कोई नहीं"), opt("per_day", "Per day", "प्रति दिन"), opt("flat", "Flat", "एकमुश्त")] },
+      { name: "late_fine_amount", label: t("Late fine amount (₹)", "विलंब शुल्क राशि (₹)"), type: "money" },
+      { name: "grace_days", label: t("Grace days after due date", "नियत तिथि के बाद छूट दिन"), type: "number" },
+      { name: "tally_ledger", label: t("Tally income ledger", "टैली आय खाता"), type: "text" },
+      { name: "is_active", label: t("Active", "सक्रिय"), type: "boolean" },
+    ],
+  },
+  {
+    name: "fees/refunds", module: "fees", label: t("Refunds", "धनवापसी"), perm: "fees.refund",
+    searchable: false,
+    columns: [
+      { key: "date", label: t("Date", "तिथि"), type: "date", sorter: true },
+      { key: "student_name", label: t("Student", "छात्र") },
+      { key: "mode", label: t("Mode", "माध्यम"), type: "tag" },
+      { key: "amount", label: t("Amount", "राशि"), type: "money" },
+      { key: "reason", label: t("Reason", "कारण") },
+      { key: "created_by", label: t("By", "द्वारा") },
+    ],
+  },
+  {
+    name: "fees/settings", module: "fees", label: t("Fee settings", "शुल्क सेटिंग्स"), perm: "fees.settings",
+    canEdit: true, exportable: false,
+    columns: [
+      { key: "receipt_prefix", label: t("Receipt prefix", "रसीद उपसर्ग") },
+      { key: "cash_ledger", label: t("Tally cash ledger", "टैली नकद खाता") },
+      { key: "bank_ledger", label: t("Tally bank ledger", "टैली बैंक खाता") },
+      { key: "tally_company", label: t("Tally company", "टैली कंपनी") },
+    ],
+    fields: [
+      { name: "receipt_prefix", label: t("Receipt prefix", "रसीद उपसर्ग"), type: "text", required: true },
+      { name: "cash_ledger", label: t("Tally cash ledger", "टैली नकद खाता"), type: "text", required: true },
+      { name: "bank_ledger", label: t("Tally bank ledger", "टैली बैंक खाता"), type: "text", required: true },
+      { name: "tally_company", label: t("Tally company name", "टैली कंपनी नाम"), type: "text" },
     ],
   },
 
@@ -705,6 +877,11 @@ export const RESOURCES: ResourceDef[] = [
       { name: "is_active", label: t("Active", "सक्रिय"), type: "boolean" },
     ],
   },
+];
+
+export const PAGES: PageDef[] = [
+  { name: "fees/collect", module: "fees", label: t("Collect fees", "शुल्क जमा"), perm: "fees.receipt.manage", path: "/fees/collect" },
+  { name: "fees/reports-page", module: "fees", label: t("Fee reports", "शुल्क रिपोर्ट"), perm: "fees.report.view", path: "/fees/reports" },
 ];
 
 export function findResource(module: string, resource: string): ResourceDef | undefined {

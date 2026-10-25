@@ -47,7 +47,8 @@ def _date_param(request, name: str, default: date) -> date:
         raise ValidationError({name: "Use YYYY-MM-DD."}) from exc
 
 
-class FeeSettingsViewSet(BranchScopedViewSetMixin, mixins.ListModelMixin, mixins.UpdateModelMixin, viewsets.GenericViewSet):
+class FeeSettingsViewSet(BranchScopedViewSetMixin, mixins.ListModelMixin, mixins.RetrieveModelMixin,
+                         mixins.UpdateModelMixin, viewsets.GenericViewSet):
     serializer_class = FeeSettingsSerializer
     perm_resource = "fees.settings"
     queryset = FeeSettings.objects.all()

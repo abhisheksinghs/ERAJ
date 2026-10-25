@@ -23,7 +23,7 @@ export function ResourceForm({ def, mode, id }: { def: ResourceDef; mode: "creat
     <Form {...formProps} layout="vertical">
       <Row gutter={16}>
         {fields.map((f) => (
-          <Col key={f.name} xs={24} md={f.type === "textarea" ? 24 : 12}>
+          <Col key={f.name} xs={24} md={f.type === "textarea" || f.type === "rows" ? 24 : 12}>
             <FormField field={f} lang={lang} />
           </Col>
         ))}

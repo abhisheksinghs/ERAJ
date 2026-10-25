@@ -5,11 +5,12 @@ import Link from "next/link";
 
 import { UI } from "@/lib/i18n";
 import { useSession } from "@/lib/refine/session";
-import { MODULES, RESOURCES, ROLE, tr } from "@/lib/resources";
+import { MODULES, PAGES, RESOURCES, ROLE, tr } from "@/lib/resources";
 
 export default function Dashboard() {
   const { me, branch, allBranches, lang, can } = useSession();
   const visible = RESOURCES.filter((r) => can(`${r.perm}.view`));
+  const pages = PAGES.filter((p) => can(p.perm) && !allBranches);
   const modules = MODULES.filter((m) => visible.some((r) => r.module === m.key));
 
   return (
@@ -32,6 +33,13 @@ export default function Dashboard() {
           <Col key={m.key} xs={24} sm={12} lg={8}>
             <Card title={tr(m.label, lang)} size="small">
               <Space direction="vertical">
+                {pages
+                  .filter((p) => p.module === m.key)
+                  .map((p) => (
+                    <Link key={p.name} href={p.path} style={{ fontWeight: 600 }}>
+                      {tr(p.label, lang)}
+                    </Link>
+                  ))}
                 {visible
                   .filter((r) => r.module === m.key)
                   .map((r) => (

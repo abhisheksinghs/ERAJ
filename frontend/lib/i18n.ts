@@ -39,6 +39,7 @@ export const UI = {
     hi: "आप सभी शाखाएँ देख रहे हैं। बदलाव करने के लिए एक शाखा चुनें।",
   },
   loading: { en: "Loading…", hi: "लोड हो रहा है…" },
+  export: { en: "Export", hi: "निर्यात" },
   welcome: { en: "Welcome", hi: "स्वागत है" },
 } as const;
 

@@ -102,3 +102,12 @@ body {
     display: none !important;
   }
 }
+
+/* Printing a report prints the report, not the menu and header. */
+@media print {
+  .no-print,
+  .ant-layout-sider,
+  .ant-layout-header {
+    display: none !important;
+  }
+}

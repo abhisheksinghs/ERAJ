@@ -81,6 +81,7 @@ class Command(BaseCommand):
                 self._people(branch)
                 self._library(branch)
                 self._hostel(branch)
+                self._fees(branch)
 
         self.stdout.write(self.style.SUCCESS(
             "Seeded abc (Basic, 1 branch) and pqr (Premium, branches patna + gaya).\n"
@@ -145,6 +146,37 @@ class Command(BaseCommand):
                     StudentGuardian.objects.create(
                         branch=branch, student=student, guardian=guardian, relation="father", is_primary=True
                     )
+
+    @staticmethod
+    def _fees(branch):
+        """Tuition in four quarterly instalments per class; the first is already due."""
+        from apps.fees import services
+        from apps.fees.models import FeeHead, FeePlan, FeePlanInstalment
+        from apps.people.models import AcademicYear, Program
+
+        year = AcademicYear.objects.get(is_current=True)
+        tuition, _ = FeeHead.objects.get_or_create(
+            branch=branch, code="TUI",
+            defaults={"name": "Tuition fee", "name_hi": "शिक्षण शुल्क", "kind": FeeHead.Kind.TUITION,
+                      "late_fine_mode": FeeHead.LateFine.PER_DAY, "late_fine_amount": 5, "grace_days": 10},
+        )
+        FeeHead.objects.get_or_create(
+            branch=branch, code="EXM", defaults={"name": "Exam fee", "name_hi": "परीक्षा शुल्क", "kind": FeeHead.Kind.EXAM}
+        )
+        start = year.start_date
+        quarters = [(1, "Q1 (Apr–Jun)", 0), (2, "Q2 (Jul–Sep)", 3), (3, "Q3 (Oct–Dec)", 6), (4, "Q4 (Jan–Mar)", 9)]
+        for program in Program.objects.filter(branch=branch):
+            amount = 3000 + 250 * (program.sequence or 0)
+            plan, created = FeePlan.objects.get_or_create(
+                branch=branch, academic_year=year, program=program, head=tuition,
+                defaults={"name": f"{program.name} tuition {year.name}"},
+            )
+            if created:
+                for seq, label, months in quarters:
+                    m = start.month - 1 + months
+                    due = start.replace(year=start.year + m // 12, month=m % 12 + 1, day=10)
+                    FeePlanInstalment.objects.create(plan=plan, sequence=seq, label=label, due_date=due, amount=amount)
+            services.apply_plan(plan)
 
     @staticmethod
     def _library(branch):
