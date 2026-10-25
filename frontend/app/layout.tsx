@@ -1,27 +1,20 @@
+import { AntdRegistry } from "@ant-design/nextjs-registry";
 import type { Metadata } from "next";
-import { getTenantSlug } from "@/lib/tenant";
+import { cookies } from "next/headers";
+
 import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Eraj",
-  description: "One platform, every institution.",
+  description: "School, college and coaching management.",
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const tenantSlug = await getTenantSlug();
-
+  const lang = (await cookies()).get("eraj_lang")?.value === "hi" ? "hi" : "en";
   return (
-    <html lang="en">
+    <html lang={lang}>
       <body>
-        <header className="topbar">
-          <span className="brand">ERAJ</span>
-          {tenantSlug ? (
-            <span className="tenant-badge">{tenantSlug}</span>
-          ) : (
-            <span className="tenant-badge tenant-badge--none">no tenant (root domain)</span>
-          )}
-        </header>
-        <main className="content">{children}</main>
+        <AntdRegistry>{children}</AntdRegistry>
       </body>
     </html>
   );

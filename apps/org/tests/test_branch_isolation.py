@@ -70,6 +70,15 @@ class BranchIsolationTest(EraTestCase):
         )
         self.assertEqual(r.status_code, 400)
 
+    def test_member_list_reports_open_loans(self):
+        member = self.make_member()
+        from apps.library import services
+
+        services.issue_book(book=self.patna_book, member=member)
+        r = self.api(self.librarian).get("/api/library/members/")
+        self.assertEqual(r.status_code, 200, r.content[:300])
+        self.assertEqual(r.json()["results"][0]["open_loan_count"], 1)
+
     def test_role_without_permission_is_403(self):
         accountant = self.make_user(Role.ACCOUNTANT)
         self.assertEqual(self.api(accountant).get("/api/library/books/").status_code, 403)

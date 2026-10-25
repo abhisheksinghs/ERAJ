@@ -1,22 +1,31 @@
 import { redirect } from "next/navigation";
 
-import { setAccessToken } from "@/lib/auth";
-import { getTenantSlug, postToBackend } from "@/lib/tenant";
+import { setSession } from "@/lib/auth";
+import { backendJson } from "@/lib/backend";
+import { getTenantSlug } from "@/lib/tenant";
 
 async function login(formData: FormData) {
   "use server";
   const tenantSlug = await getTenantSlug();
   if (!tenantSlug) redirect("/login?e=notenant");
 
-  const res = await postToBackend<{ access: string }>(tenantSlug, "/api/auth/login/", {
+  const res = await backendJson<{ access: string; refresh: string }>(tenantSlug, "POST", "/api/auth/login/", {
     email: formData.get("email"),
     password: formData.get("password"),
   });
-  if (!res.ok) redirect("/login?e=bad");
+  if (res.status === 429) redirect("/login?e=throttled");
+  if (res.status !== 200 || !res.data) redirect("/login?e=bad");
 
-  await setAccessToken(res.data.access);
-  redirect("/");
+  await setSession(res.data.access, res.data.refresh);
+  redirect("/dashboard");
 }
+
+const MESSAGES: Record<string, string> = {
+  bad: "Wrong email or password. / ईमेल या पासवर्ड गलत है।",
+  expired: "Your session ended. Please sign in again. / सत्र समाप्त हुआ, फिर से साइन इन करें।",
+  throttled: "Too many attempts. Wait a minute and try again. / बहुत अधिक प्रयास, एक मिनट बाद प्रयास करें।",
+  notenant: "Open your institution's address to sign in.",
+};
 
 export default async function LoginPage({
   searchParams,
@@ -25,27 +34,27 @@ export default async function LoginPage({
 }) {
   const sp = await searchParams;
   const tenantSlug = await getTenantSlug();
-  if (!tenantSlug) {
-    return (
-      <div className="notice notice--no-tenant">
-        Open a tenant subdomain (e.g. <code>abc.localhost:3000</code>) to sign in.
-      </div>
-    );
-  }
+  const message = typeof sp.e === "string" ? MESSAGES[sp.e] : undefined;
 
   return (
-    <form action={login} className="card">
-      <h1>Sign in — {tenantSlug}</h1>
-      {sp.e === "bad" && <p className="notice">Wrong email or password.</p>}
-      <label>
-        Email
-        <input name="email" type="email" required autoComplete="username" />
-      </label>
-      <label>
-        Password
-        <input name="password" type="password" required autoComplete="current-password" />
-      </label>
-      <button type="submit">Sign in</button>
-    </form>
+    <div className="auth-wrap">
+      <form action={login} className="auth-card">
+        <span className="auth-brand">ERAJ</span>
+        <h1>Sign in</h1>
+        <p className="sub">साइन इन करें{tenantSlug ? ` · ${tenantSlug}` : ""}</p>
+        {message && <p className="notice">{message}</p>}
+        <label>
+          Email / ईमेल
+          <input name="email" type="email" required autoComplete="username" />
+        </label>
+        <label>
+          Password / पासवर्ड
+          <input name="password" type="password" required autoComplete="current-password" />
+        </label>
+        <button type="submit" disabled={!tenantSlug}>
+          Sign in
+        </button>
+      </form>
+    </div>
   );
 }

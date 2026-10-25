@@ -42,7 +42,7 @@ class MemberSerializer(BranchScopedSerializer):
     full_name = serializers.CharField(read_only=True)
     phone = serializers.CharField(read_only=True)
     member_type = serializers.SerializerMethodField()
-    open_loan_count = serializers.IntegerField(read_only=True)
+    open_loan_count = serializers.SerializerMethodField()
     effective_borrow_limit = serializers.IntegerField(read_only=True)
 
     class Meta:
@@ -52,6 +52,11 @@ class MemberSerializer(BranchScopedSerializer):
             "open_loan_count", "effective_borrow_limit", "created_at",
         )
         read_only_fields = ("created_at",)
+
+    def get_open_loan_count(self, obj) -> int:
+        # Lists annotate `loans_open` (one query); a freshly created member falls back to the property.
+        annotated = getattr(obj, "loans_open", None)
+        return annotated if annotated is not None else obj.open_loan_count
 
     def get_member_type(self, obj) -> str:
         return "student" if obj.student_id else "staff"

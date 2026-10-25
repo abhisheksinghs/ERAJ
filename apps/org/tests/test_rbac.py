@@ -26,6 +26,7 @@ class RbacMapTest(SimpleTestCase):
         self.assertFalse(role_allows(Role.LIBRARIAN, "fees.payment.view"))
         self.assertTrue(role_allows(Role.LIBRARIAN, "people.student.view"))
         self.assertFalse(role_allows(Role.LIBRARIAN, "people.student.manage"))
+        self.assertFalse(role_allows(Role.LIBRARIAN, "org.branch.view"))  # no Settings menu
 
     def test_teacher_cannot_unlock_marks(self):
         self.assertTrue(role_allows(Role.TEACHER, "exam.marks.enter"))

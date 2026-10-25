@@ -52,7 +52,7 @@ class MemberViewSet(BranchScopedViewSetMixin, viewsets.ModelViewSet):
     ordering_fields = ["created_at"]
     filterset_fields = ["student", "staff"]
     queryset = Member.objects.select_related("student", "staff").annotate(
-        open_loan_count=Count("issues", filter=Q(issues__returned_at__isnull=True))
+        loans_open=Count("issues", filter=Q(issues__returned_at__isnull=True))
     )
 
 

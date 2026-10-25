@@ -18,8 +18,9 @@ from fnmatch import fnmatchcase
 from apps.org.models import Role
 
 # Read-only access to the shared registry that most staff roles need in order
-# to pick a student, staff member or class in their own module.
-REGISTRY_READ = ["people.*.view", "org.branch.view"]
+# to pick a student, staff member or class in their own module. (Branch names
+# for the switcher come from /api/auth/me, so staff roles get no Settings screen.)
+REGISTRY_READ = ["people.*.view"]
 
 PERMISSIONS: dict[str, list[str]] = {
     # A branch admin runs their branch; creating branches and assigning the

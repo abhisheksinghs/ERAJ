@@ -1,0 +1,45 @@
+/** Interface strings in English and Hindi. Screen labels live in lib/resources.ts. */
+export const UI = {
+  dashboard: { en: "Dashboard", hi: "डैशबोर्ड" },
+  create: { en: "Add", hi: "जोड़ें" },
+  save: { en: "Save", hi: "सहेजें" },
+  edit: { en: "Edit", hi: "संपादित करें" },
+  delete: { en: "Delete", hi: "हटाएँ" },
+  cancel: { en: "Cancel", hi: "रद्द करें" },
+  confirm: { en: "Are you sure?", hi: "क्या आप निश्चित हैं?" },
+  yes: { en: "Yes", hi: "हाँ" },
+  no: { en: "No", hi: "नहीं" },
+  search: { en: "Search", hi: "खोजें" },
+  actions: { en: "Actions", hi: "कार्य" },
+  import: { en: "Import from Excel", hi: "एक्सेल से आयात" },
+  importHelp: {
+    en: "Upload an .xlsx or .csv file. Every row is checked first; if any row has a problem, nothing is saved.",
+    hi: ".xlsx या .csv फ़ाइल अपलोड करें। पहले हर पंक्ति जाँची जाती है; किसी पंक्ति में त्रुटि हो तो कुछ भी सहेजा नहीं जाता।",
+  },
+  checkOnly: { en: "Check only", hi: "केवल जाँचें" },
+  importNow: { en: "Import", hi: "आयात करें" },
+  row: { en: "Row", hi: "पंक्ति" },
+  imported: { en: "Imported", hi: "आयात हुआ" },
+  allOk: { en: "All rows are valid.", hi: "सभी पंक्तियाँ सही हैं।" },
+  branch: { en: "Branch", hi: "शाखा" },
+  allBranches: { en: "All branches (view only)", hi: "सभी शाखाएँ (केवल देखें)" },
+  language: { en: "Language", hi: "भाषा" },
+  signOut: { en: "Sign out", hi: "साइन आउट" },
+  done: { en: "Done", hi: "पूर्ण" },
+  noAccess: { en: "Your role does not include this screen.", hi: "आपकी भूमिका में यह स्क्रीन शामिल नहीं है।" },
+  notFound: { en: "Screen not found.", hi: "स्क्रीन नहीं मिली।" },
+  subscriptionTitle: { en: "Subscription inactive", hi: "सदस्यता निष्क्रिय" },
+  subscriptionBody: {
+    en: "This institution's plan has lapsed or been suspended. Renew to restore access.",
+    hi: "इस संस्था की योजना समाप्त या निलंबित है। पहुँच बहाल करने के लिए नवीनीकरण करें।",
+  },
+  contactBilling: { en: "Contact billing to renew", hi: "नवीनीकरण के लिए संपर्क करें" },
+  readOnlyAll: {
+    en: "You are viewing all branches. Choose one branch to make changes.",
+    hi: "आप सभी शाखाएँ देख रहे हैं। बदलाव करने के लिए एक शाखा चुनें।",
+  },
+  loading: { en: "Loading…", hi: "लोड हो रहा है…" },
+  welcome: { en: "Welcome", hi: "स्वागत है" },
+} as const;
+
+export type UIKey = keyof typeof UI;
