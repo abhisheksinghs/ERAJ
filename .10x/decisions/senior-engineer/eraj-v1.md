@@ -39,3 +39,15 @@
    own records).
 Tricky: rounding (whole rupees per line, ESI ceil), TDS remaining months in FY (Apr–Mar),
 arrears for months with LOP (prorate by that month's paid days), lock guard on HR edits.
+
+## M5 approach (2026-11-22)
+1. Transport models + services: `fare_for(stop)`, `assign`, `stop`, `change`, `ingest_position`
+   (speed + near-stop alerts, haversine), reports; GPS push view; `simulate_gps` command.
+2. Inventory models + services: `receive_into_stock` (weighted avg), `issue`, `return_issue`,
+   `adjust`, requisition `submit/approve/reject`, `raise_po`, `receive`, `direct_purchase`;
+   PO PDF; reports.
+3. Hostel `cost_per_head(mess, month)`.
+4. Scenario tests TR-1…6, INV-1…5, plus HR-1 inventory half; negatives (cross-branch, role).
+5. Frontend registry + pages: live map, rider lists/reports, stock reports, goods receipt.
+Tricky: capacity overlap by dates; mid-month stop; decimals in quantities (kg/litre) — qty is
+Decimal(12,3); PO numbering counter per FY.

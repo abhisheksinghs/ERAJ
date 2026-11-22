@@ -52,3 +52,15 @@ AuditLog.
 - Failure modes added: edit after lock (409 guard on HR attendance/leave + payroll inputs);
   arrears paid twice (ArrearPayment markers, unique per source payslip + rate); concurrent
   approvals overspend leave (`select_for_update` on balance, pending reserved).
+
+## M5 — Transport + Inventory (2026-11-22, ADR-010)
+- `transport`: Route → RouteStop, FareSlab, Vehicle (+push key, last position), VehicleDocument,
+  TransportAssignment (student xor staff; start/end), VehiclePosition, TransportAlert,
+  TransportSettings. Posts monthly charges via `fees.post_charge`; alerts via `core.notify`.
+  GPS push endpoint is outside JWT (device key), like attendance push.
+- `inventory`: Store, Item, Vendor, StockMove (ledger), Requisition(+lines, approvals),
+  PurchaseOrder(+lines), GoodsReceipt(+lines), DirectPurchase(+lines), IssueRecord,
+  InventorySettings, POCounter. Hostel reads mess-store consumption for cost per head.
+- Failure modes: over-capacity race (vehicle row lock); double-billed months (idempotent charge
+  keys); negative stock (item row lock + check); over-receipt (outstanding check under PO lock);
+  approver approves own requisition or twice (refused).
