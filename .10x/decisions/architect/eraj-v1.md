@@ -64,3 +64,14 @@ AuditLog.
 - Failure modes: over-capacity race (vehicle row lock); double-billed months (idempotent charge
   keys); negative stock (item row lock + check); over-receipt (outstanding check under PO lock);
   approver approves own requisition or twice (refused).
+
+## M6 — Alerts, Portal, Learning (2026-11-22, ADR-011)
+- `notify`: ChannelConfig, AlertRule, Template, NotifySettings, OptOut, Message (log), Notice,
+  NoticeRead; providers (log_only, sms_http, whatsapp_cloud, smtp); tasks send/release/reminders;
+  WhatsApp webhook. `core.notify` delegates here.
+- `portal`: PortalOTP, ChangeRequest, StudentLeave; API under /api/portal/ (OTP login, per-child
+  read endpoints, student submissions/tests, requests). `access.child_for` is the only gate.
+- `learning`: Homework(+files), Submission(+files), Material, OnlineClass, JoinRecord, OnlineTest,
+  Question, Attempt, DiaryEntry.
+- Failure modes: provider down (retries + failed with reason; module action unaffected); duplicate
+  absent alerts (dedupe key per student/day); OTP brute force (caps); IDOR (single gate).

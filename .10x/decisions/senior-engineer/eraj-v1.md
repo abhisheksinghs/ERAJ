@@ -51,3 +51,12 @@ arrears for months with LOP (prorate by that month's paid days), lock guard on H
 5. Frontend registry + pages: live map, rider lists/reports, stock reports, goods receipt.
 Tricky: capacity overlap by dates; mid-month stop; decimals in quantities (kg/litre) — qty is
 Decimal(12,3); PO numbering counter per FY.
+
+## M6 approach (2026-11-22)
+1. notify: models, catalogue + default templates, `raise_event`, providers, tasks, webhook,
+   notices; rewire core.notify; attendance absent; fee reminders task.
+2. learning: models/services/views; teacher scope via TeachingAssignment; files like HR docs.
+3. portal: OTP + JWT; child gate; read endpoints reuse module services; requests.
+4. Tests: ALR-1…4, PORTAL-1…5, LRN-1…4 + IDOR sweep + OTP abuse.
+5. Frontend: staff registry (Alerts, Learning, portal requests) + review/grade + test builder;
+   portal layout (mobile) + OTP login + child pages.
