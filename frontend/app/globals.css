@@ -111,3 +111,26 @@ body {
     display: none !important;
   }
 }
+
+/* ---------------------------------------------------------------- parent / student portal (ADR-011) */
+.portal { max-width: 560px; margin: 0 auto; min-height: 100vh; background: #f5f6fa; padding-bottom: 76px; }
+.portal-top { position: sticky; top: 0; z-index: 10; background: #fff; padding: 10px 14px; border-bottom: 1px solid #e6e8ef; }
+.portal-main { padding: 14px; }
+.portal-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 5px 0; border-bottom: 1px dashed #eceef3; }
+.portal-row:last-child { border-bottom: 0; }
+.portal-bottom { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 560px; display: grid;
+  grid-template-columns: repeat(5, 1fr); background: #fff; border-top: 1px solid #e6e8ef; z-index: 20; padding-bottom: env(safe-area-inset-bottom); }
+.portal-bottom button { border: 0; background: none; padding: 8px 2px 6px; display: flex; flex-direction: column; align-items: center; gap: 2px;
+  font-size: 11px; color: #6b7280; cursor: pointer; }
+.portal-bottom button .anticon { font-size: 20px; }
+.portal-bottom button.on { color: #1e2761; font-weight: 600; }
+.portal-more { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.portal-cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.portal-cal .h { text-align: center; font-size: 12px; color: #6b7280; }
+.portal-cal .d { text-align: center; padding: 8px 0; border-radius: 8px; background: #fff; font-size: 13px; }
+.portal-cal .d.present { background: #d3f9d8; } .portal-cal .d.absent { background: #ffc9c9; } .portal-cal .d.leave { background: #d0ebff; }
+.portal-cal .d.late, .portal-cal .d.half_day { background: #fff3bf; } .portal-cal .d.holiday { background: #e9ecef; color: #868e96; }
+.portal-key { font-size: 12px; padding: 2px 8px; border-radius: 10px; background: #fff; }
+.portal-key.present { background: #d3f9d8; } .portal-key.absent { background: #ffc9c9; } .portal-key.leave { background: #d0ebff; }
+.portal-key.late { background: #fff3bf; } .portal-key.holiday { background: #e9ecef; }
+.portal-file { display: block; border: 1px dashed #adb5bd; border-radius: 8px; padding: 10px; text-align: center; cursor: pointer; background: #fff; }

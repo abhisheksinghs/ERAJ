@@ -138,6 +138,16 @@ export function FormField({ field, lang, compact, hideLabel }: { field: FieldDef
           <DatePicker style={{ width: "100%" }} format="DD-MM-YYYY" />
         </Form.Item>
       );
+    case "datetime":
+      return (
+        <Form.Item
+          {...common}
+          getValueProps={(v: string | null) => ({ value: v ? dayjs(v) : undefined })}
+          normalize={(d: dayjs.Dayjs | null) => (d ? d.format("YYYY-MM-DDTHH:mm:ssZ") : null)}
+        >
+          <DatePicker showTime={{ format: "HH:mm", minuteStep: 5 }} style={{ width: "100%" }} format="DD-MM-YYYY HH:mm" />
+        </Form.Item>
+      );
     case "boolean":
       return (
         <Form.Item {...common} valuePropName="checked">

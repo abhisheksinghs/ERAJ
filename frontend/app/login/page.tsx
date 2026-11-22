@@ -17,7 +17,11 @@ async function login(formData: FormData) {
   if (res.status !== 200 || !res.data) redirect("/login?e=bad");
 
   await setSession(res.data.access, res.data.refresh);
-  redirect("/dashboard");
+  // Student logins (and parents who used email) belong in the portal, not the staff screens.
+  const me = await backendJson<{ branches: { roles: string[] }[]; group_admin: boolean }>(tenantSlug, "GET", "/api/auth/me/", undefined, res.data.access);
+  const roles = new Set((me.data?.branches ?? []).flatMap((b) => b.roles));
+  const portalOnly = !me.data?.group_admin && roles.size > 0 && [...roles].every((r) => r === "parent" || r === "student");
+  redirect(portalOnly ? "/portal" : "/dashboard");
 }
 
 const MESSAGES: Record<string, string> = {
@@ -54,6 +58,9 @@ export default async function LoginPage({
         <button type="submit" disabled={!tenantSlug}>
           Sign in
         </button>
+        <p className="sub" style={{ marginTop: 12 }}>
+          <a href="/portal/login">Parent? Sign in with your mobile number / अभिभावक? मोबाइल नंबर से साइन इन करें</a>
+        </p>
       </form>
     </div>
   );

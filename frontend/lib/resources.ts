@@ -10,7 +10,7 @@
 export type T = { en: string; hi: string };
 
 export type FieldType =
-  | "text" | "textarea" | "number" | "money" | "date" | "email" | "password"
+  | "text" | "textarea" | "number" | "money" | "date" | "datetime" | "email" | "password"
   | "select" | "multiselect" | "relation" | "boolean" | "rows";
 
 export interface Option {
@@ -165,6 +165,18 @@ const RUN_REL = { resource: "payroll/runs", label: "month" };
 const ITEM_REL = { resource: "inventory/items", label: "name", search: true };
 const VENDOR_REL = { resource: "inventory/vendors", label: "name", search: true };
 
+
+const MATERIAL_KIND = [opt("note", "Notes", "नोट्स"), opt("file", "File (PDF / slides)", "फ़ाइल (PDF / स्लाइड)"), opt("video", "Video link", "वीडियो लिंक"), opt("link", "Web link", "वेब लिंक")];
+const CHANNEL = [opt("sms", "SMS", "एसएमएस"), opt("whatsapp", "WhatsApp", "व्हाट्सऐप"), opt("email", "Email", "ईमेल")];
+const PROVIDER = [opt("log_only", "Log only (testing)", "केवल लॉग (परीक्षण)"), opt("sms_http", "SMS gateway (HTTP)", "एसएमएस गेटवे"), opt("whatsapp_cloud", "WhatsApp Cloud API", "व्हाट्सऐप क्लाउड"), opt("smtp", "Email (SMTP)", "ईमेल (SMTP)")];
+const MSG_STATUS = [opt("queued", "Queued", "कतार में"), opt("held", "Held (quiet hours)", "रोका (शांत समय)"), opt("sent", "Sent", "भेजा"), opt("delivered", "Delivered", "पहुँचा"), opt("failed", "Failed", "विफल"), opt("simulated", "Simulated (log only)", "अनुकरण (केवल लॉग)"), opt("skipped", "Skipped", "छोड़ा")];
+const AUDIENCE = [opt("section", "One section", "एक अनुभाग"), opt("program", "A class / course", "एक कक्षा / पाठ्यक्रम"), opt("route", "A transport route", "एक परिवहन मार्ग"), opt("block", "A hostel block", "एक छात्रावास ब्लॉक"), opt("parents", "All parents", "सभी अभिभावक"), opt("staff", "All staff", "सभी कर्मचारी")];
+const LANGUAGE = [opt("en", "English", "अंग्रेज़ी"), opt("hi", "Hindi", "हिन्दी")];
+const PORTAL_REQ_STATUS = [opt("requested", "Waiting", "प्रतीक्षारत"), opt("approved", "Approved", "स्वीकृत"), opt("rejected", "Rejected", "अस्वीकृत"), opt("cancelled", "Cancelled", "रद्द")];
+const CHANGE_FIELD = [opt("address", "Address", "पता"), opt("phone", "Parent's mobile", "अभिभावक मोबाइल"), opt("email", "Parent's email", "अभिभावक ईमेल")];
+const SUBJECT_REL = { resource: "people/subjects", label: "name", search: true };
+const PROGRAM_REL = { resource: "people/programs", label: "name" };
+
 export const MODULES: ModuleDef[] = [
   { key: "people", label: t("Students & Staff", "छात्र एवं कर्मचारी"), icon: "TeamOutlined" },
   { key: "library", label: t("Library", "पुस्तकालय"), icon: "BookOutlined" },
@@ -177,6 +189,9 @@ export const MODULES: ModuleDef[] = [
   { key: "payroll", label: t("Payroll", "वेतन"), icon: "BankOutlined" },
   { key: "transport", label: t("Transport", "परिवहन"), icon: "CarOutlined" },
   { key: "inventory", label: t("Inventory", "भंडार"), icon: "InboxOutlined" },
+  { key: "learning", label: t("Homework & online learning", "गृहकार्य एवं ऑनलाइन शिक्षण"), icon: "ReadOutlined" },
+  { key: "notify", label: t("Alerts & notices", "सूचनाएँ एवं अलर्ट"), icon: "NotificationOutlined" },
+  { key: "portal", label: t("Parent portal", "अभिभावक पोर्टल"), icon: "MobileOutlined" },
   { key: "org", label: t("Settings", "सेटिंग्स"), icon: "SettingOutlined" },
 ];
 
@@ -2106,6 +2121,312 @@ export const RESOURCES: ResourceDef[] = [
       { name: "is_active", label: t("Active", "सक्रिय"), type: "boolean" },
     ],
   },
+
+  // ---------------------------------------------------------------- learning (ADR-011)
+  {
+    name: "learning/homework", module: "learning", label: t("Homework", "गृहकार्य"), perm: "learning.homework",
+    canCreate: true, canEdit: true, canDelete: true, searchable: true, defaultSort: { field: "due_date", order: "desc" },
+    filters: [{ field: "section", label: t("Section", "अनुभाग"), relation: SECTION_REL }, { field: "subject", label: t("Subject", "विषय"), relation: SUBJECT_REL }],
+    columns: [
+      { key: "title", label: t("Homework", "गृहकार्य") },
+      { key: "section_name", label: t("Section", "अनुभाग") },
+      { key: "subject_name", label: t("Subject", "विषय") },
+      { key: "due_date", label: t("Due", "अंतिम तिथि"), type: "date", sorter: true },
+      { key: "submitted", label: t("Submitted", "जमा"), type: "number" },
+      { key: "teacher_name", label: t("Teacher", "शिक्षक") },
+    ],
+    fields: [
+      { name: "section", label: t("Section", "अनुभाग"), type: "relation", relation: { ...SECTION_REL, search: true }, required: true },
+      { name: "subject", label: t("Subject", "विषय"), type: "relation", relation: SUBJECT_REL, required: true },
+      { name: "title", label: t("Title", "शीर्षक"), type: "text", required: true },
+      { name: "description", label: t("Instructions", "निर्देश"), type: "textarea" },
+      { name: "due_date", label: t("Due date", "अंतिम तिथि"), type: "date", required: true },
+    ],
+    actions: [
+      { key: "review", label: t("Files & submissions", "फ़ाइलें एवं जमा कार्य"), perm: "learning.submission.view", method: "link", path: "", href: "/learning/review?homework={id}" },
+    ],
+  },
+  {
+    name: "learning/materials", module: "learning", label: t("Study material", "अध्ययन सामग्री"), perm: "learning.material",
+    canCreate: true, canEdit: true, canDelete: true, searchable: true,
+    filters: [{ field: "subject", label: t("Subject", "विषय"), relation: SUBJECT_REL }, { field: "kind", label: t("Type", "प्रकार"), options: MATERIAL_KIND }],
+    columns: [
+      { key: "title", label: t("Title", "शीर्षक") },
+      { key: "subject_name", label: t("Subject", "विषय") },
+      { key: "chapter", label: t("Chapter", "अध्याय") },
+      { key: "program_name", label: t("Class", "कक्षा") },
+      { key: "section_name", label: t("Section", "अनुभाग") },
+      { key: "kind", label: t("Type", "प्रकार"), type: "tag", options: MATERIAL_KIND },
+    ],
+    fields: [
+      { name: "program", label: t("Class (all sections)", "कक्षा (सभी अनुभाग)"), type: "relation", relation: PROGRAM_REL },
+      { name: "section", label: t("…or one section", "…या एक अनुभाग"), type: "relation", relation: { ...SECTION_REL, search: true } },
+      { name: "subject", label: t("Subject", "विषय"), type: "relation", relation: SUBJECT_REL, required: true },
+      { name: "chapter", label: t("Chapter", "अध्याय"), type: "text" },
+      { name: "title", label: t("Title", "शीर्षक"), type: "text", required: true },
+      { name: "description", label: t("Notes", "नोट्स"), type: "textarea" },
+      { name: "kind", label: t("Type", "प्रकार"), type: "select", options: MATERIAL_KIND, required: true },
+      { name: "link", label: t("Video / web link", "वीडियो / वेब लिंक"), type: "text", help: t("For a PDF or slides, use “Upload a file” instead.", "PDF या स्लाइड के लिए “फ़ाइल अपलोड” का उपयोग करें।") },
+    ],
+  },
+  {
+    name: "learning/classes", module: "learning", label: t("Online classes", "ऑनलाइन कक्षाएँ"), perm: "learning.class",
+    canCreate: true, canEdit: true, canDelete: true, defaultSort: { field: "starts_at", order: "desc" },
+    filters: [{ field: "section", label: t("Section", "अनुभाग"), relation: SECTION_REL }],
+    columns: [
+      { key: "title", label: t("Class", "कक्षा") },
+      { key: "section_name", label: t("Section", "अनुभाग") },
+      { key: "subject_name", label: t("Subject", "विषय") },
+      { key: "starts_at", label: t("Starts", "आरंभ"), type: "datetime", sorter: true },
+      { key: "ends_at", label: t("Ends", "समाप्ति"), type: "datetime" },
+      { key: "joined", label: t("Opened the link", "लिंक खोला"), type: "number" },
+    ],
+    fields: [
+      { name: "section", label: t("Section", "अनुभाग"), type: "relation", relation: { ...SECTION_REL, search: true }, required: true },
+      { name: "subject", label: t("Subject", "विषय"), type: "relation", relation: SUBJECT_REL, required: true },
+      { name: "title", label: t("Title", "शीर्षक"), type: "text", required: true },
+      { name: "starts_at", label: t("Starts", "आरंभ"), type: "datetime", required: true },
+      { name: "ends_at", label: t("Ends", "समाप्ति"), type: "datetime", required: true },
+      { name: "link", label: t("Google Meet / Zoom link", "गूगल मीट / ज़ूम लिंक"), type: "text", required: true },
+    ],
+    actions: [
+      { key: "joins", label: t("Who joined", "किसने जुड़ा"), perm: "learning.class.view", method: "link", path: "", href: "/learning/review?class={id}" },
+    ],
+  },
+  {
+    name: "learning/tests", module: "learning", label: t("Online tests", "ऑनलाइन परीक्षा"), perm: "learning.test",
+    canCreate: true, canDelete: true, defaultSort: { field: "opens_at", order: "desc" },
+    filters: [{ field: "section", label: t("Section", "अनुभाग"), relation: SECTION_REL }],
+    columns: [
+      { key: "title", label: t("Test", "परीक्षा") },
+      { key: "section_name", label: t("Section", "अनुभाग") },
+      { key: "subject_name", label: t("Subject", "विषय") },
+      { key: "opens_at", label: t("Opens", "खुलती है"), type: "datetime", sorter: true },
+      { key: "closes_at", label: t("Closes", "बंद होती है"), type: "datetime" },
+      { key: "question_count", label: t("Questions", "प्रश्न"), type: "number" },
+      { key: "published", label: t("Open to students", "छात्रों के लिए खुली"), type: "bool" },
+    ],
+    fields: [
+      { name: "section", label: t("Section", "अनुभाग"), type: "relation", relation: { ...SECTION_REL, search: true }, required: true },
+      { name: "subject", label: t("Subject", "विषय"), type: "relation", relation: SUBJECT_REL, required: true },
+      { name: "title", label: t("Title", "शीर्षक"), type: "text", required: true },
+      { name: "instructions", label: t("Instructions", "निर्देश"), type: "textarea" },
+      { name: "opens_at", label: t("Opens", "खुलती है"), type: "datetime", required: true },
+      { name: "closes_at", label: t("Closes", "बंद होती है"), type: "datetime", required: true },
+      { name: "time_limit_minutes", label: t("Time limit (minutes)", "समय सीमा (मिनट)"), type: "number", required: true },
+      { name: "show_answers", label: t("Show correct answers after submitting", "जमा करने के बाद सही उत्तर दिखाएँ"), type: "boolean" },
+    ],
+    actions: [
+      { key: "questions", label: t("Questions & results", "प्रश्न एवं परिणाम"), perm: "learning.test.view", method: "link", path: "", href: "/learning/test?id={id}" },
+    ],
+  },
+  {
+    name: "learning/diary", module: "learning", label: t("Class diary", "कक्षा डायरी"), perm: "learning.diary",
+    canCreate: true, canEdit: true, canDelete: true, defaultSort: { field: "date", order: "desc" },
+    filters: [{ field: "section", label: t("Section", "अनुभाग"), relation: SECTION_REL }],
+    columns: [
+      { key: "date", label: t("Date", "तिथि"), type: "date", sorter: true },
+      { key: "period", label: t("Period", "कालांश"), type: "number" },
+      { key: "section_name", label: t("Section", "अनुभाग") },
+      { key: "subject_name", label: t("Subject", "विषय") },
+      { key: "topic", label: t("What was taught", "क्या पढ़ाया") },
+      { key: "teacher_name", label: t("Teacher", "शिक्षक") },
+    ],
+    fields: [
+      { name: "section", label: t("Section", "अनुभाग"), type: "relation", relation: { ...SECTION_REL, search: true }, required: true },
+      { name: "date", label: t("Date", "तिथि"), type: "date", required: true },
+      { name: "period", label: t("Period", "कालांश"), type: "number" },
+      { name: "subject", label: t("Subject", "विषय"), type: "relation", relation: SUBJECT_REL, required: true },
+      { name: "topic", label: t("What was taught", "क्या पढ़ाया"), type: "text", required: true },
+      { name: "notes", label: t("Notes for parents", "अभिभावकों के लिए नोट"), type: "textarea" },
+    ],
+  },
+  // ---------------------------------------------------------------- alerts & notices (ADR-011)
+  {
+    name: "notify/notices", module: "notify", label: t("Notices & circulars", "सूचनाएँ एवं परिपत्र"), perm: "notify.notice",
+    canCreate: true, canEdit: true, canDelete: true, searchable: false,
+    filters: [{ field: "audience", label: t("To", "किसे"), options: AUDIENCE }],
+    columns: [
+      { key: "title", label: t("Title", "शीर्षक") },
+      { key: "audience", label: t("To", "किसे"), type: "tag", options: AUDIENCE },
+      { key: "sent_at", label: t("Sent", "भेजा"), type: "datetime" },
+      { key: "recipients", label: t("Recipients", "प्राप्तकर्ता"), type: "number" },
+      { key: "read_count", label: t("Read", "पढ़ा"), type: "number" },
+    ],
+    fields: [
+      { name: "title", label: t("Title", "शीर्षक"), type: "text", required: true },
+      { name: "body", label: t("Message", "संदेश"), type: "textarea", required: true },
+      { name: "audience", label: t("To", "किसे"), type: "select", options: AUDIENCE, required: true },
+      { name: "section", label: t("Section", "अनुभाग"), type: "relation", relation: { ...SECTION_REL, search: true } },
+      { name: "program", label: t("Class / course", "कक्षा / पाठ्यक्रम"), type: "relation", relation: PROGRAM_REL },
+      { name: "route", label: t("Route", "मार्ग"), type: "relation", relation: { resource: "transport/routes", label: "code" } },
+      { name: "block", label: t("Hostel block", "छात्रावास ब्लॉक"), type: "relation", relation: { resource: "hostel/blocks", label: "name" } },
+      { name: "channels", label: t("Also send by", "इसके द्वारा भी भेजें"), type: "multiselect", options: CHANNEL, help: t("Empty = shown on the portal only.", "खाली = केवल पोर्टल पर।") },
+    ],
+    actions: [
+      { key: "send", label: t("Send now", "अभी भेजें"), perm: "notify.notice.manage", method: "post", path: "send",
+        confirm: t("Send this notice to everyone in the audience?", "यह सूचना सभी को भेजें?"), visibleWhen: { field: "sent_at", equals: null } },
+      { key: "reads", label: t("Who has read it", "किसने पढ़ा"), perm: "notify.notice.view", method: "link", path: "", href: "/notify/reads?notice={id}" },
+    ],
+  },
+  {
+    name: "notify/messages", module: "notify", label: t("Delivery log", "संदेश लॉग"), perm: "notify.message",
+    searchable: true, defaultSort: { field: "created_at", order: "desc" },
+    filters: [
+      { field: "channel", label: t("Channel", "माध्यम"), options: CHANNEL },
+      { field: "status", label: t("Status", "स्थिति"), options: MSG_STATUS },
+      { field: "student", label: t("Student", "छात्र"), relation: STUDENT_REL },
+    ],
+    columns: [
+      { key: "created_at", label: t("When", "कब"), type: "datetime" },
+      { key: "event", label: t("Alert", "अलर्ट") },
+      { key: "channel", label: t("Channel", "माध्यम"), type: "tag", options: CHANNEL },
+      { key: "to", label: t("To", "किसे") },
+      { key: "student_name", label: t("Student", "छात्र") },
+      { key: "status", label: t("Status", "स्थिति"), type: "tag", options: MSG_STATUS },
+      { key: "error", label: t("Reason", "कारण") },
+      { key: "body", label: t("Message", "संदेश") },
+    ],
+    actions: [
+      { key: "retry", label: t("Retry", "फिर से भेजें"), perm: "notify.message.manage", method: "post", path: "retry", visibleWhen: { field: "status", equals: "failed" } },
+    ],
+  },
+  {
+    name: "notify/rules", module: "notify", label: t("Automatic alerts", "स्वचालित अलर्ट"), perm: "notify.rule",
+    canEdit: true, exportable: false,
+    columns: [
+      { key: "label", label: t("Alert", "अलर्ट") },
+      { key: "audience", label: t("To", "किसे"), type: "tag", options: [opt("guardian", "Parents", "अभिभावक"), opt("staff", "Staff", "कर्मचारी"), opt("direct", "Login code", "लॉगिन कोड")] },
+      { key: "enabled", label: t("On", "चालू"), type: "bool" },
+      { key: "channels_text", label: t("Channels", "माध्यम") },
+      { key: "days_before", label: t("Days before", "दिन पहले"), type: "number" },
+    ],
+    fields: [
+      { name: "enabled", label: t("Send this alert", "यह अलर्ट भेजें"), type: "boolean" },
+      { name: "channels", label: t("Channels", "माध्यम"), type: "multiselect", options: CHANNEL },
+      { name: "days_before", label: t("Days before the due date (fee due soon)", "देय तिथि से कितने दिन पहले"), type: "number" },
+    ],
+  },
+  {
+    name: "notify/templates", module: "notify", label: t("Message wording", "संदेश शब्दावली"), perm: "notify.template",
+    canCreate: true, canEdit: true, canDelete: true,
+    filters: [{ field: "channel", label: t("Channel", "माध्यम"), options: CHANNEL }, { field: "language", label: t("Language", "भाषा"), options: LANGUAGE }],
+    columns: [
+      { key: "event", label: t("Alert", "अलर्ट") },
+      { key: "channel", label: t("Channel", "माध्यम"), type: "tag", options: CHANNEL },
+      { key: "language", label: t("Language", "भाषा"), type: "tag", options: LANGUAGE },
+      { key: "body", label: t("Wording", "शब्दावली") },
+      { key: "provider_template", label: t("Approved template id", "स्वीकृत टेम्पलेट आईडी") },
+    ],
+    fields: [
+      { name: "event", label: t("Alert (e.g. attendance.absent)", "अलर्ट (जैसे attendance.absent)"), type: "text", required: true, createOnly: true },
+      { name: "channel", label: t("Channel", "माध्यम"), type: "select", options: CHANNEL, required: true, createOnly: true },
+      { name: "language", label: t("Language", "भाषा"), type: "select", options: LANGUAGE, required: true, createOnly: true },
+      { name: "body", label: t("Wording — use {student}, {date}, {amount} …", "शब्दावली — {student}, {date}, {amount} …"), type: "textarea", required: true },
+      { name: "provider_template", label: t("DLT / WhatsApp approved template id", "DLT / व्हाट्सऐप स्वीकृत टेम्पलेट आईडी"), type: "text" },
+    ],
+  },
+  {
+    name: "notify/channels", module: "notify", label: t("Channels (SMS / WhatsApp / email)", "माध्यम (एसएमएस / व्हाट्सऐप / ईमेल)"), perm: "notify.channel",
+    canEdit: true, exportable: false,
+    columns: [
+      { key: "channel", label: t("Channel", "माध्यम"), type: "tag", options: CHANNEL },
+      { key: "provider", label: t("Provider", "प्रदाता"), type: "tag", options: PROVIDER },
+      { key: "enabled", label: t("On", "चालू"), type: "bool" },
+      { key: "sender", label: t("Sender", "प्रेषक") },
+      { key: "credential_set", label: t("Key present on server", "सर्वर पर कुंजी"), type: "bool" },
+    ],
+    fields: [
+      { name: "provider", label: t("Provider", "प्रदाता"), type: "select", options: PROVIDER, required: true },
+      { name: "enabled", label: t("On", "चालू"), type: "boolean" },
+      { name: "sender", label: t("Sender id / WhatsApp phone-number id / from address", "प्रेषक आईडी"), type: "text" },
+      { name: "endpoint", label: t("Gateway URL (SMS)", "गेटवे यूआरएल (एसएमएस)"), type: "text" },
+      { name: "credential_env", label: t("Name of the server setting holding the key", "कुंजी वाली सर्वर सेटिंग का नाम"), type: "text",
+        help: t("The key itself is never stored here; the server administrator sets it.", "कुंजी यहाँ सहेजी नहीं जाती; सर्वर प्रशासक सेट करते हैं।") },
+    ],
+  },
+  {
+    name: "notify/settings", module: "notify", label: t("Quiet hours", "शांत समय"), perm: "notify.settings",
+    canEdit: true, exportable: false,
+    columns: [
+      { key: "quiet_start", label: t("Hold alerts from", "अलर्ट रोकें"), type: "text" },
+      { key: "quiet_end", label: t("Send held alerts at", "रोके अलर्ट भेजें"), type: "text" },
+      { key: "sms_fallback", label: t("SMS falls back to WhatsApp", "एसएमएस के बदले व्हाट्सऐप"), type: "bool" },
+    ],
+    fields: [
+      { name: "quiet_start", label: t("Hold alerts from (HH:MM)", "अलर्ट रोकें (HH:MM)"), type: "text", required: true },
+      { name: "quiet_end", label: t("Send held alerts at (HH:MM)", "रोके अलर्ट भेजें (HH:MM)"), type: "text", required: true },
+      { name: "sms_fallback", label: t("Until SMS (DLT) is approved, send by WhatsApp + email", "DLT स्वीकृति तक व्हाट्सऐप + ईमेल"), type: "boolean" },
+    ],
+  },
+  {
+    name: "notify/opt-outs", module: "notify", label: t("Opt-outs", "सदस्यता छोड़ी"), perm: "notify.optout",
+    canCreate: true, canDelete: true, searchable: true,
+    columns: [
+      { key: "guardian_name", label: t("Parent", "अभिभावक") },
+      { key: "guardian_phone", label: t("Phone", "फ़ोन") },
+      { key: "channel", label: t("Channel", "माध्यम"), type: "tag", options: CHANNEL },
+      { key: "created_at", label: t("Since", "से"), type: "datetime" },
+    ],
+    fields: [
+      { name: "guardian", label: t("Parent", "अभिभावक"), type: "relation", relation: { resource: "people/guardians", label: "full_name", search: true }, required: true },
+      { name: "channel", label: t("Channel", "माध्यम"), type: "select", options: CHANNEL, required: true },
+    ],
+  },
+  // ---------------------------------------------------------------- portal requests (ADR-011)
+  {
+    name: "portal/leaves", module: "portal", label: t("Student leave requests", "छात्र अवकाश आवेदन"), perm: "attendance.leave",
+    defaultSort: { field: "from_date", order: "desc" },
+    filters: [{ field: "status", label: t("Status", "स्थिति"), options: PORTAL_REQ_STATUS }],
+    columns: [
+      { key: "student_name", label: t("Student", "छात्र") },
+      { key: "admission_no", label: t("Adm. no.", "प्रवेश सं.") },
+      { key: "from_date", label: t("From", "से"), type: "date" },
+      { key: "to_date", label: t("To", "तक"), type: "date" },
+      { key: "days", label: t("Days", "दिन"), type: "number" },
+      { key: "reason", label: t("Reason", "कारण") },
+      { key: "status", label: t("Status", "स्थिति"), type: "tag", options: PORTAL_REQ_STATUS },
+    ],
+    actions: [
+      { key: "approve", label: t("Approve", "स्वीकृत करें"), perm: "attendance.leave.manage", method: "post", path: "decide", body: { approve: true }, visibleWhen: { field: "status", equals: "requested" } },
+      { key: "reject", label: t("Reject", "अस्वीकृत करें"), perm: "attendance.leave.manage", method: "post", path: "decide", body: { approve: false }, danger: true,
+        prompt: { field: "note", label: t("Reason", "कारण") }, visibleWhen: { field: "status", equals: "requested" } },
+    ],
+  },
+  {
+    name: "portal/change-requests", module: "portal", label: t("Address / phone changes", "पता / फ़ोन परिवर्तन"), perm: "office.change_request",
+    filters: [{ field: "status", label: t("Status", "स्थिति"), options: PORTAL_REQ_STATUS }, { field: "field", label: t("What", "क्या"), options: CHANGE_FIELD }],
+    columns: [
+      { key: "created_at", label: t("Asked", "अनुरोध"), type: "datetime" },
+      { key: "student_name", label: t("Student", "छात्र") },
+      { key: "guardian_name", label: t("Parent", "अभिभावक") },
+      { key: "field", label: t("What", "क्या"), type: "tag", options: CHANGE_FIELD },
+      { key: "old_value", label: t("Now", "अभी") },
+      { key: "new_value", label: t("Change to", "बदलकर") },
+      { key: "status", label: t("Status", "स्थिति"), type: "tag", options: PORTAL_REQ_STATUS },
+    ],
+    actions: [
+      { key: "approve", label: t("Approve & apply", "स्वीकृत कर लागू करें"), perm: "office.change_request.manage", method: "post", path: "decide", body: { approve: true },
+        confirm: t("Apply this change to the record?", "यह परिवर्तन अभिलेख पर लागू करें?"), visibleWhen: { field: "status", equals: "requested" } },
+      { key: "reject", label: t("Reject", "अस्वीकृत करें"), perm: "office.change_request.manage", method: "post", path: "decide", body: { approve: false }, danger: true,
+        prompt: { field: "note", label: t("Reason", "कारण") }, visibleWhen: { field: "status", equals: "requested" } },
+    ],
+  },
+  {
+    name: "portal/student-logins", module: "portal", label: t("Student logins", "छात्र लॉगिन"), perm: "office.student_login",
+    canCreate: true, canDelete: true, deleteLabel: t("Remove login", "लॉगिन हटाएँ"), searchable: true,
+    columns: [
+      { key: "full_name", label: t("Student", "छात्र") },
+      { key: "admission_no", label: t("Adm. no.", "प्रवेश सं.") },
+      { key: "email", label: t("Login email", "लॉगिन ईमेल") },
+      { key: "last_login", label: t("Last signed in", "अंतिम साइन इन"), type: "datetime" },
+    ],
+    fields: [
+      { name: "student", label: t("Student", "छात्र"), type: "relation", relation: STUDENT_REL, required: true },
+      { name: "email", label: t("Login email", "लॉगिन ईमेल"), type: "email", required: true },
+      { name: "password", label: t("Starting password (8+ characters)", "प्रारंभिक पासवर्ड (8+ अक्षर)"), type: "password", required: true },
+    ],
+  },
 ];
 
 export const PAGES: PageDef[] = [
@@ -2129,6 +2450,10 @@ export const PAGES: PageDef[] = [
   { name: "inventory/reports-page", module: "inventory", label: t("Inventory reports", "भंडार रिपोर्ट"), perm: "inventory.report.view", path: "/inventory/reports" },
   { name: "fees/collect", module: "fees", label: t("Collect fees", "शुल्क जमा"), perm: "fees.receipt.manage", path: "/fees/collect" },
   { name: "fees/reports-page", module: "fees", label: t("Fee reports", "शुल्क रिपोर्ट"), perm: "fees.report.view", path: "/fees/reports" },
+  { name: "learning/review", module: "learning", label: t("Check homework", "गृहकार्य जाँचें"), perm: "learning.submission.view", path: "/learning/review" },
+  { name: "learning/upload", module: "learning", label: t("Upload a file", "फ़ाइल अपलोड"), perm: "learning.material.manage", path: "/learning/upload" },
+  { name: "learning/reports-page", module: "learning", label: t("Learning reports", "शिक्षण रिपोर्ट"), perm: "learning.report.view", path: "/learning/reports" },
+  { name: "notify/usage", module: "notify", label: t("Messages per month", "मासिक संदेश"), perm: "notify.message.view", path: "/notify/usage" },
 ];
 
 export function findResource(module: string, resource: string): ResourceDef | undefined {

@@ -50,7 +50,11 @@ async function handle(req: NextRequest, ctx: { params: Promise<{ path: string[] 
       if (v) h[name] = v;
     }
     if (token) h.Authorization = `Bearer ${token}`;
-    if (branch && /^(\d+|all)$/.test(branch)) h["X-Branch"] = branch;
+    // Portal pages name the child's branch per request (a parent's children can be in two branches);
+    // staff pages use the chosen-branch cookie. Either way it is only a choice the backend re-checks.
+    const asked = req.headers.get("x-branch") ?? req.nextUrl.searchParams.get("_branch"); // _branch: plain download links
+    const chosen = asked && /^\d+$/.test(asked) ? asked : branch;
+    if (chosen && /^(\d+|all)$/.test(chosen)) h["X-Branch"] = chosen;
     return h;
   };
 

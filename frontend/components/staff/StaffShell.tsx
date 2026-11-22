@@ -2,7 +2,8 @@
 
 import {
   BankOutlined, BookOutlined, CarOutlined, CheckSquareOutlined, DashboardOutlined, FileDoneOutlined,
-  HomeOutlined, IdcardOutlined, InboxOutlined, ScheduleOutlined, SettingOutlined, TeamOutlined, WalletOutlined,
+  HomeOutlined, IdcardOutlined, InboxOutlined, MobileOutlined, NotificationOutlined, ReadOutlined, ScheduleOutlined,
+  SettingOutlined, TeamOutlined, WalletOutlined,
 } from "@ant-design/icons";
 import { ThemedLayout, ThemedTitle, useNotificationProvider } from "@refinedev/antd";
 import { type AccessControlProvider, type I18nProvider, Refine, type ResourceProps } from "@refinedev/core";
@@ -39,7 +40,8 @@ const NOTIFICATIONS: Record<string, { en: string; hi: string }> = {
 
 const ICONS: Record<string, React.ComponentType> = {
   BankOutlined, BookOutlined, CarOutlined, CheckSquareOutlined, DashboardOutlined, FileDoneOutlined,
-  HomeOutlined, IdcardOutlined, InboxOutlined, ScheduleOutlined, SettingOutlined, TeamOutlined, WalletOutlined,
+  HomeOutlined, IdcardOutlined, InboxOutlined, MobileOutlined, NotificationOutlined, ReadOutlined, ScheduleOutlined,
+  SettingOutlined, TeamOutlined, WalletOutlined,
 };
 
 function icon(name: string) {
@@ -60,6 +62,12 @@ function Shell({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     dayjs.locale(lang === "hi" ? "hi" : "en");
   }, [lang]);
+  useEffect(() => {
+    // Parent and student logins use the portal; the staff screens have nothing for them.
+    if (!me || me.group_admin) return;
+    const roles = new Set(me.branches.flatMap((b) => b.roles));
+    if (roles.size > 0 && [...roles].every((r) => r === "parent" || r === "student")) window.location.replace("/portal");
+  }, [me]);
 
   const resources = useMemo<ResourceProps[]>(() => {
     const visible = RESOURCES.filter((r) => can(`${r.perm}.view`));

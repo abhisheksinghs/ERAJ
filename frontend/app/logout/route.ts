@@ -14,7 +14,8 @@ export async function POST(request: Request) {
   if (tenant && refresh) {
     await backendJson(tenant, "POST", "/api/auth/logout/", { refresh }, access).catch(() => undefined);
   }
-  const res = NextResponse.redirect(new URL("/login", request.url), { status: 303 });
+  const portal = new URL(request.url).searchParams.get("to") === "portal";
+  const res = NextResponse.redirect(new URL(portal ? "/portal/login" : "/login", request.url), { status: 303 });
   for (const name of [ACCESS, REFRESH, BRANCH]) res.cookies.delete(name);
   return res;
 }
