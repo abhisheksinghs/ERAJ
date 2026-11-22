@@ -25,3 +25,17 @@
 - Refine + Next App Router SSR: staff area renders client-side (`"use client"` providers);
   auth check happens in middleware + proxy, not in the browser.
 - Refine/AntD version pinning against the upgraded Next major.
+
+## M4 approach (2026-11-22)
+1. HR models + services: `mark_day`, `apply_punches`, `apply_leave`/`approve`/`reject`/`cancel`,
+   `exit_staff`, `staff_on_leave`, `lop_days(staff, month)`; reports in `hr/reports.py`.
+2. Staff list default = active (people view) unless `status` param present.
+3. Payroll calculator as pure functions over plain inputs (structure snapshot, settings, LOP,
+   loans, one-time, prior payslips) → lines; unit-tested without HTTP.
+4. Run lifecycle services: `create_run` (increments, compute), `recompute`, `submit`, `back_to_draft`,
+   `lock` (loan balances, arrear markers), `reverse` (Admin, reason).
+5. Exports: payslip PDF, bank sheet, register, ECR, ESIC, PT, 24Q, Form 16, YTD.
+6. Scenario tests HR-1…4, PAY-1…8 + negatives (cross-branch, teacher denied, self-service only
+   own records).
+Tricky: rounding (whole rupees per line, ESI ceil), TDS remaining months in FY (Apr–Mar),
+arrears for months with LOP (prorate by that month's paid days), lock guard on HR edits.

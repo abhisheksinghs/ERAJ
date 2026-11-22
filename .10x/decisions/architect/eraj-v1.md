@@ -39,3 +39,16 @@ AuditLog.
 | Receipt counter race | Duplicate/gap receipt numbers | `select_for_update` counter row; concurrency test |
 | Fake provider mistaken for real | False confidence | Delivery log status `simulated`; QA report lists real vs fake |
 | Payroll rule misconfiguration | Wrong salaries | Rates are data; acceptance = accountant's manual check |
+
+## M4 — HR + Payroll (2026-11-22, ADR-009)
+- `hr`: StaffProfile (1:1 Staff, payroll identity), Designation, StaffDocument, StaffAttendance,
+  LeaveType, LeaveBalance, LeaveApplication. Reads `attendance.Holiday`/settings, `attendance.Punch`.
+  Exposes `staff_on_leave()` (timetable), `lop_days()` and `month_is_locked()` guard (payroll).
+- `payroll`: PayRuleSet → PayLevel → PayCell, DARate, PayComponent; SalaryStructure (+overrides);
+  StatutorySettings; Loan; OneTimePayment; PayrollRun → Payslip → PayslipLine; ArrearPayment.
+  Pure calculator (`payroll/calc.py`, no DB writes) + services (run lifecycle) + exports.
+- Dependency direction: payroll → hr → people. HR asks payroll "is this month locked?" through a
+  lazy import guard so HR never imports payroll models at module load.
+- Failure modes added: edit after lock (409 guard on HR attendance/leave + payroll inputs);
+  arrears paid twice (ArrearPayment markers, unique per source payslip + rate); concurrent
+  approvals overspend leave (`select_for_update` on balance, pending reserved).

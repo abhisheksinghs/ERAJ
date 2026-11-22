@@ -36,3 +36,14 @@
 ## Media
 Uploads use `django_tenants.files.storage.TenantFileSystemStorage` → `MEDIA_ROOT/<schema>/…`.
 Not served directly; authenticated download views to be added where files are shown.
+
+## M4 — HR + Payroll (2026-11-22)
+- `payroll` migrations regenerated (old flat `Payslip` dropped — never deployed; no data).
+- Unique: StaffAttendance(staff, date); LeaveBalance(staff, type, year); LeaveType(branch, code);
+  PayRuleSet(branch, code); PayLevel(rule_set, code); PayCell(level, index); DARate(rule_set,
+  effective_from); SalaryStructure(staff); PayrollRun(branch, month) where status ≠ reversed
+  (partial unique); Payslip(run, staff); ArrearPayment(source_payslip, to_percent).
+- Indexes: StaffAttendance(branch, date) for daily lists and month registers; LeaveApplication
+  (staff, status); Payslip(staff, month) for YTD and arrears scans.
+- Money DecimalField(12,2); percentages DecimalField(6,3); slabs as validated JSON lists.
+- Payslip rows are snapshots — never recomputed after lock; reversal flips status, rows kept.
