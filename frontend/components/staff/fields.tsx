@@ -21,7 +21,9 @@ export function RelationSelect({
   filters,
   style,
   enabled = true,
+  id,
 }: {
+  id?: string; // injected by Form.Item so its label points at this select (accessibility)
   resource: string;
   label: string;
   search?: boolean;
@@ -48,6 +50,7 @@ export function RelationSelect({
   return (
     <Select
       {...(selectProps as unknown as SelectProps<number | number[]>)}
+      id={id}
       mode={multiple ? "multiple" : undefined}
       value={value ?? undefined}
       onChange={(v) => onChange?.((v as number | number[] | undefined) ?? (multiple ? [] : null))}

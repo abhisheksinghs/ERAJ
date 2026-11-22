@@ -112,15 +112,19 @@ class RequisitionSerializer(BranchScopedSerializer):
     lines = RequisitionLineSerializer(many=True)
     department_name = serializers.CharField(source="department.name", read_only=True)
     approved_by = serializers.SerializerMethodField()
+    label = serializers.SerializerMethodField()
 
     class Meta:
         model = Requisition
         fields = ("id", "branch", "department", "department_name", "purpose", "status", "total", "approvals_needed",
-                  "approved_by", "requested_by", "decided_note", "lines", "created_at")
+                  "approved_by", "requested_by", "decided_note", "lines", "label", "created_at")
         read_only_fields = ("status", "total", "approvals_needed", "requested_by", "decided_note", "created_at")
 
-    def get_approved_by(self, obj) -> list[str]:
-        return [a.by for a in obj.approvals.all()]
+    def get_approved_by(self, obj) -> str:
+        return ", ".join(a.by for a in obj.approvals.all())
+
+    def get_label(self, obj) -> str:
+        return f"#{obj.pk} {obj.department.name} ₹{obj.total:,.0f} ({obj.get_status_display().lower()})"
 
 
 class POLineSerializer(serializers.ModelSerializer):
@@ -193,9 +197,18 @@ class DirectPurchaseSerializer(BranchScopedSerializer):
 
 
 class InventorySettingsSerializer(BranchScopedSerializer):
+    levels_text = serializers.SerializerMethodField()
+
     class Meta:
         model = InventorySettings
-        fields = ("id", "branch", "approval_levels")
+        fields = ("id", "branch", "approval_levels", "levels_text")
+
+    def get_levels_text(self, obj) -> str:
+        parts = []
+        for lvl in obj.approval_levels or []:
+            top = lvl.get("up_to")
+            parts.append(f"{'up to ₹' + format(int(Decimal(str(top))), ',') if top not in (None, '') else 'above'}: {lvl.get('approvals')}")
+        return " · ".join(parts)
 
     def validate_approval_levels(self, v):
         if not isinstance(v, list) or not v:

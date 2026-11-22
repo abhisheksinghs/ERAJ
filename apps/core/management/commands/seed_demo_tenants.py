@@ -86,12 +86,14 @@ class Command(BaseCommand):
                 self._academics(branch)
                 self._timetable(branch)
                 self._hr_payroll(branch)
+                self._transport(branch)
+                self._inventory(branch)
 
         self.stdout.write(self.style.SUCCESS(
             "Seeded abc (Basic, 1 branch) and pqr (Premium, branches patna + gaya).\n"
             f"Password for every demo user: {DEMO_PASSWORD}\n"
             "  owner@abc.eraj.test, owner@pqr.eraj.test (Admin + Group admin)\n"
-            "  <role>.<branch>@pqr.eraj.test for librarian/accountant/teacher/warden/hr, e.g. librarian.patna@pqr.eraj.test"
+            "  <role>.<branch>@pqr.eraj.test for librarian/accountant/teacher/warden/hr/transport/store, e.g. librarian.patna@pqr.eraj.test"
         ))
 
     @staticmethod
@@ -212,10 +214,129 @@ class Command(BaseCommand):
         assert LeaveApplication.objects.filter(branch=branch).exists()
 
     @staticmethod
+    def _transport(branch):
+        """Two routes in Patna with stops, fares, two vehicles (papers, one insurance due in 20 days),
+        riders on several stops, and a few recent simulated GPS positions."""
+        from datetime import time, timedelta
+        from decimal import Decimal
+
+        from apps.people.models import Staff, Student
+        from apps.transport import services as tr
+        from apps.transport.gps import simulate_step
+        from apps.transport.models import FareSlab, Route, RouteStop, Vehicle, VehicleDocument
+
+        if Route.objects.filter(branch=branch).exists():
+            return
+        today = timezone.localdate()
+        base = (Decimal("25.6100"), Decimal("85.1400")) if branch.code == "patna" else (Decimal("24.7914"), Decimal("85.0002"))
+        FareSlab.objects.create(branch=branch, from_km=0, to_km=3, monthly_fare=600)
+        FareSlab.objects.create(branch=branch, from_km=Decimal("3.01"), to_km=8, monthly_fare=900)
+        FareSlab.objects.create(branch=branch, from_km=Decimal("8.01"), to_km=20, monthly_fare=1200)
+        routes = {}
+        for code, name, names, dlat, dlng in [
+            ("R1", "North line", ["Gandhi Maidan", "Boring Road", "Patliputra", "Rajiv Nagar", "Danapur"], Decimal("0.012"), Decimal("0")),
+            ("R2", "East line", ["Kankarbagh", "Rajendra Nagar", "Agam Kuan", "Patna City"], Decimal("-0.004"), Decimal("0.018")),
+        ]:
+            r = Route.objects.create(branch=branch, code=code, name=name)
+            for i, nm in enumerate(names, start=1):
+                RouteStop.objects.create(branch=branch, route=r, sequence=i, name=nm, latitude=base[0] + dlat * i,
+                                         longitude=base[1] + dlng * i, distance_km=Decimal("1.6") * i,
+                                         pickup_time=time(7, 10 + 6 * i), drop_time=time(14, 10 + 6 * i))
+            routes[code] = r
+        bus = Vehicle.objects.create(branch=branch, registration_no=f"BR01PA{4100 + branch.pk}", kind="bus", capacity=40,
+                                     route=routes["R1"], driver_name="Ramesh Yadav", driver_phone="9801100001",
+                                     helper_name="Sonu", helper_phone="9801100002")
+        van = Vehicle.objects.create(branch=branch, registration_no=f"BR01VN{2200 + branch.pk}", kind="van", capacity=12,
+                                     route=routes["R2"], driver_name="Mukesh Paswan", driver_phone="9801100003")
+        for v, ins in ((bus, today + timedelta(days=20)), (van, today + timedelta(days=200))):
+            VehicleDocument.objects.create(branch=branch, vehicle=v, kind="insurance", number=f"INS-{v.pk:04d}", expires_on=ins)
+            VehicleDocument.objects.create(branch=branch, vehicle=v, kind="fitness", number=f"FIT-{v.pk:04d}", expires_on=today + timedelta(days=150))
+            VehicleDocument.objects.create(branch=branch, vehicle=v, kind="pollution", number=f"PUC-{v.pk:04d}", expires_on=today + timedelta(days=60))
+        start = today.replace(day=1)
+        # leave the students the fees walkthrough uses (C6-001, C6-003, C7-002) without transport
+        students = [s for s in Student.objects.filter(branch=branch, status="active").order_by("admission_no")
+                    if not s.admission_no.endswith(("C6-001", "C6-003", "C7-002"))]
+        for n, s in enumerate(students[:7]):
+            route = routes["R1"] if n < 5 else routes["R2"]
+            stop = route.stops.order_by("sequence")[n % route.stops.count()]
+            tr.assign(stop=stop, vehicle=bus if route.code == "R1" else van, start=start, student=s, by="seed")
+        teacher = Staff.objects.filter(branch=branch, status="active").order_by("employee_code").first()
+        if teacher:
+            tr.assign(stop=routes["R1"].stops.get(sequence=2), vehicle=bus, start=start, staff=teacher, by="seed")
+        now = timezone.now()
+        for k in range(6):  # the last minute of a trip, positions every 10 s
+            simulate_step(bus, 0.25 + k * 0.03, at=now - timedelta(seconds=60 - k * 10), speed=24 + k)
+            simulate_step(van, 0.4 + k * 0.03, at=now - timedelta(seconds=60 - k * 10), speed=20 + k)
+
+    @staticmethod
+    def _inventory(branch):
+        """Main store and a mess (provisions) store, vendors, stock in and out, a projector with a teacher,
+        a ₹60,000 requisition awaiting approval and an order partly received."""
+        from datetime import timedelta
+        from decimal import Decimal
+
+        from apps.hostel.models import Mess
+        from apps.inventory import services as inv
+        from apps.inventory.models import Item, Store, Vendor
+        from apps.people.models import Department, Staff
+
+        if Store.objects.filter(branch=branch).exists():
+            return
+        today = timezone.localdate()
+        main = Store.objects.create(branch=branch, name="Main store")
+        mess = Mess.objects.filter(branch=branch).first()
+        provisions = Store.objects.create(branch=branch, name="Mess store", kind="mess", mess=mess)
+        office, _ = Department.objects.get_or_create(branch=branch, name="Office")
+        science, _ = Department.objects.get_or_create(branch=branch, name="Science")
+        stat = Vendor.objects.create(branch=branch, name="Patna Stationers", phone="9801200001", gstin="10ABCDE1234F1Z5",
+                                     address="Exhibition Road, Patna")
+        lab = Vendor.objects.create(branch=branch, name="Bihar Scientific Co.", phone="9801200002", gstin="10PQRSX5678K1Z2")
+        grain = Vendor.objects.create(branch=branch, name="Maa Durga Kirana", phone="9801200003")
+
+        def item(store, code, name, unit="piece", kind="consumable", reorder=0, category=""):
+            return Item.objects.create(branch=branch, store=store, code=code, name=name, unit=unit, kind=kind,
+                                       reorder_level=Decimal(reorder), category=category)
+
+        paper = item(main, "PAP-A4", "A4 paper", "ream", reorder=10, category="Stationery")
+        chalk = item(main, "CHK-W", "White chalk", "box", reorder=5, category="Stationery")
+        marker = item(main, "MRK-B", "Whiteboard marker", "piece", reorder=20, category="Stationery")
+        projector = item(main, "PRJ-01", "Projector", kind="returnable", category="Equipment")
+        laptop = item(main, "LAP-01", "Laptop", kind="returnable", category="Equipment")
+        micro = item(main, "MIC-01", "Student microscope", category="Lab")
+        rice = item(provisions, "RICE", "Rice", "kg", reorder=100, category="Provisions")
+        dal = item(provisions, "DAL", "Arhar dal", "kg", reorder=30, category="Provisions")
+        oil = item(provisions, "OIL", "Mustard oil", "litre", reorder=20, category="Provisions")
+        inv.opening_stock(item=projector, quantity=3, rate=42000, by="seed")
+        inv.opening_stock(item=laptop, quantity=2, rate=38000, by="seed")
+        inv.direct_purchase(vendor=stat, bill_no=f"PS-{branch.pk}01", bill_date=today - timedelta(days=12), by="seed",
+                            lines=[{"item": paper, "quantity": Decimal(50), "rate": Decimal(250)},
+                                   {"item": chalk, "quantity": Decimal(20), "rate": Decimal(45)},
+                                   {"item": marker, "quantity": Decimal(60), "rate": Decimal(30)}])
+        inv.direct_purchase(vendor=grain, bill_no=f"MD-{branch.pk}01", bill_date=today - timedelta(days=10), by="seed",
+                            lines=[{"item": rice, "quantity": Decimal(500), "rate": Decimal(38)},
+                                   {"item": dal, "quantity": Decimal(120), "rate": Decimal(110)},
+                                   {"item": oil, "quantity": Decimal(60), "rate": Decimal(165)}])
+        inv.issue(item=paper, quantity=Decimal(42), department=office, by="seed", note="Exam papers")
+        inv.issue(item=chalk, quantity=Decimal(6), department=science, by="seed")
+        inv.issue(item=rice, quantity=Decimal(180), department=office, by="seed", note="Kitchen, week 1-2")
+        inv.issue(item=dal, quantity=Decimal(45), department=office, by="seed", note="Kitchen, week 1-2")
+        teacher = Staff.objects.filter(branch=branch, status="active").order_by("employee_code").first()
+        if teacher:
+            inv.issue(item=projector, quantity=1, staff=teacher, due_back=today + timedelta(days=10), by="seed", note="Class 6-A")
+        store_user = f"store.{branch.code}@pqr.eraj.test"
+        req = inv.create_requisition(department=science, purpose="Biology lab microscopes", by=store_user,
+                                     lines=[{"item": micro, "quantity": Decimal(10), "estimated_rate": Decimal(6000)}])
+        inv.submit_requisition(requisition=req, by=store_user)
+        po = inv.raise_order(vendor=stat, by="seed", lines=[{"item": marker, "quantity": Decimal(100), "rate": Decimal(28)},
+                                                            {"item": chalk, "quantity": Decimal(30), "rate": Decimal(44)}])
+        lines = list(po.lines.order_by("pk"))
+        inv.receive(order=po, quantities={lines[0].pk: Decimal(60)}, challan_no="CH-1182", by="seed")
+
+    @staticmethod
     def _staff_users(branch):
         from apps.org.models import Role, RoleAssignment
 
-        for role in (Role.LIBRARIAN, Role.ACCOUNTANT, Role.TEACHER, Role.WARDEN, Role.HR):
+        for role in (Role.LIBRARIAN, Role.ACCOUNTANT, Role.TEACHER, Role.WARDEN, Role.HR, Role.TRANSPORT, Role.STORE):
             user, created = User.objects.get_or_create(
                 email=f"{role}.{branch.code}@pqr.eraj.test",
                 defaults={"first_name": role.label, "last_name": branch.name},

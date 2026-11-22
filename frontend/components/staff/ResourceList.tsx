@@ -16,10 +16,14 @@ import { tr } from "@/lib/resources";
 
 type Row = Record<string, unknown> & { id: number };
 
-/** Action bodies may carry "{today}" (local date, YYYY-MM-DD), e.g. a relieving date. */
+/** Action bodies may carry "{today}" or "{next_month}" (1st of next month), local dates as YYYY-MM-DD. */
 function fillBody(body?: Record<string, unknown>): Record<string, unknown> {
-  const today = new Date().toLocaleDateString("en-CA");
-  return Object.fromEntries(Object.entries(body ?? {}).map(([k, v]) => [k, v === "{today}" ? today : v]));
+  const now = new Date();
+  const tokens: Record<string, string> = {
+    "{today}": now.toLocaleDateString("en-CA"),
+    "{next_month}": new Date(now.getFullYear(), now.getMonth() + 1, 1).toLocaleDateString("en-CA"),
+  };
+  return Object.fromEntries(Object.entries(body ?? {}).map(([k, v]) => [k, typeof v === "string" && v in tokens ? tokens[v] : v]));
 }
 
 export function ResourceList({ def }: { def: ResourceDef }) {

@@ -131,7 +131,7 @@ class Scenario5Test(InventoryBase):
         po = self.post(self.keeper, "/api/inventory/orders/", {"vendor": self.vendor.pk, "requisition": req_id})
         self.assertEqual(po.status_code, 409)  # not fully approved yet
         r = self.post(self.admin, f"/api/inventory/requisitions/{req_id}/approve/")
-        self.assertEqual((r.json()["status"], len(r.json()["approved_by"])), ("approved", 2))
+        self.assertEqual((r.json()["status"], r.json()["approved_by"].count("@")), ("approved", 2))
         po = self.post(self.keeper, "/api/inventory/orders/", {"vendor": self.vendor.pk, "requisition": req_id})
         self.assertEqual(po.status_code, 201, po.content)
         po = po.json()

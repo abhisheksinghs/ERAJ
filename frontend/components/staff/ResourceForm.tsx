@@ -2,6 +2,7 @@
 
 import { Create, Edit, useForm } from "@refinedev/antd";
 import { Col, Form, Row } from "antd";
+import { useSearchParams } from "next/navigation";
 
 import { FormField } from "@/components/staff/fields";
 import { useSession } from "@/lib/refine/session";
@@ -19,8 +20,14 @@ export function ResourceForm({ def, mode, id }: { def: ResourceDef; mode: "creat
   });
 
   const fields = (def.fields ?? []).filter((f) => (mode === "create" ? !f.editOnly : !f.createOnly));
+  // A create link can pre-fill relation fields, e.g. /inventory/orders/create?requisition=12
+  const params = useSearchParams();
+  const prefill =
+    mode === "create"
+      ? Object.fromEntries(fields.filter((f) => f.type === "relation" && /^\d+$/.test(params.get(f.name) ?? "")).map((f) => [f.name, Number(params.get(f.name))]))
+      : {};
   const body = (
-    <Form {...formProps} layout="vertical">
+    <Form {...formProps} initialValues={{ ...(formProps.initialValues ?? {}), ...prefill }} layout="vertical">
       <Row gutter={16}>
         {fields.map((f) => (
           <Col key={f.name} xs={24} md={f.type === "textarea" || f.type === "rows" ? 24 : 12}>

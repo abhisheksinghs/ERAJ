@@ -125,6 +125,17 @@ const COMPONENT_KIND = [opt("earning", "Allowance", "भत्ता"), opt("ded
 const COMPONENT_CALC = [opt("fixed", "Fixed ₹", "निश्चित ₹"), opt("percent_basic", "% of basic", "मूल वेतन का %")];
 const YES_NO = [opt("true", "Yes", "हाँ"), opt("false", "No", "नहीं")];
 
+const VEHICLE_KIND = [opt("bus", "Bus", "बस"), opt("minibus", "Mini-bus", "मिनी बस"), opt("van", "Van", "वैन"), opt("auto", "Auto / e-rickshaw", "ऑटो / ई-रिक्शा"), opt("other", "Other", "अन्य")];
+const VEHICLE_DOC = [opt("insurance", "Insurance", "बीमा"), opt("fitness", "Fitness certificate", "फ़िटनेस प्रमाणपत्र"), opt("permit", "Permit", "परमिट"), opt("pollution", "Pollution certificate", "प्रदूषण प्रमाणपत्र"), opt("other", "Other", "अन्य")];
+const ALERT_KIND = [opt("near_stop", "Bus near stop", "बस पड़ाव निकट"), opt("over_speed", "Over-speed", "तेज़ गति"), opt("document", "Paper expiring", "कागज़ात समाप्ति")];
+const ITEM_KIND = [opt("consumable", "Consumable", "उपभोग्य"), opt("returnable", "Returnable", "वापसी योग्य")];
+const UNIT = [opt("piece", "Piece", "नग"), opt("box", "Box", "डिब्बा"), opt("ream", "Ream", "रीम"), opt("packet", "Packet", "पैकेट"), opt("kg", "Kg", "किग्रा"), opt("litre", "Litre", "लीटर"), opt("set", "Set", "सेट"), opt("other", "Other", "अन्य")];
+const ISSUE_STATUS = [opt("out", "With staff", "कर्मचारी के पास"), opt("returned", "Returned", "वापस"), opt("damaged", "Damaged", "क्षतिग्रस्त"), opt("lost", "Lost", "खोया")];
+const REQ_STATUS = [opt("draft", "Draft", "ड्राफ़्ट"), opt("pending", "Awaiting approval", "स्वीकृति लंबित"), opt("approved", "Approved", "स्वीकृत"), opt("rejected", "Rejected", "अस्वीकृत"), opt("ordered", "Ordered", "आदेशित")];
+const PO_STATUS = [opt("open", "Open", "खुला"), opt("partly", "Partly received", "आंशिक प्राप्त"), opt("received", "Received", "प्राप्त"), opt("cancelled", "Cancelled", "रद्द")];
+const MOVE_KIND = [opt("opening", "Opening", "प्रारंभिक"), opt("receipt", "Goods received", "माल प्राप्त"), opt("purchase", "Direct purchase", "प्रत्यक्ष क्रय"), opt("issue", "Issued", "जारी"), opt("return", "Returned", "वापस"), opt("damaged", "Damaged", "क्षतिग्रस्त"), opt("lost", "Lost", "खोया"), opt("adjust", "Adjustment", "समायोजन")];
+const STORE_KIND = [opt("general", "General store", "सामान्य भंडार"), opt("mess", "Mess store (provisions)", "मेस भंडार (राशन)")];
+
 const HOSTEL_GENDER = [opt("male", "Boys", "छात्र"), opt("female", "Girls", "छात्राएँ"), opt("any", "Any", "कोई भी")];
 const ROOM_TYPE = [opt("single", "Single", "एकल"), opt("double", "Double", "दोहरा"), opt("triple", "Triple", "तिहरा"), opt("dorm", "Dormitory", "डॉरमिटरी")];
 const ROOM_STATUS = [opt("active", "Active", "सक्रिय"), opt("repair", "Under repair", "मरम्मत में"), opt("closed", "Closed", "बंद")];
@@ -151,6 +162,8 @@ const RULE_SET_REL = { resource: "payroll/rule-sets", label: "name" };
 const LEVEL_REL = { resource: "payroll/levels", label: "code" };
 const COMPONENT_REL = { resource: "payroll/components", label: "name" };
 const RUN_REL = { resource: "payroll/runs", label: "month" };
+const ITEM_REL = { resource: "inventory/items", label: "name", search: true };
+const VENDOR_REL = { resource: "inventory/vendors", label: "name", search: true };
 
 export const MODULES: ModuleDef[] = [
   { key: "people", label: t("Students & Staff", "छात्र एवं कर्मचारी"), icon: "TeamOutlined" },
@@ -1701,86 +1714,353 @@ export const RESOURCES: ResourceDef[] = [
     ],
   },
 
-  // ------------------------------------------------------------ transport
+  // ------------------------------------------------------------ transport (ADR-010)
   {
-    name: "transport/routes", module: "transport", label: t("Routes", "मार्ग"), perm: "transport.route",
-    canCreate: true, canEdit: true, canDelete: true,
-    columns: [{ key: "name", label: t("Route", "मार्ग") }, { key: "stops", label: t("Stops", "पड़ाव") }],
+    name: "transport/routes", module: "transport", label: t("Routes & stops", "मार्ग एवं पड़ाव"), perm: "transport.route",
+    canCreate: true, canEdit: true, canDelete: true, searchable: true,
+    columns: [
+      { key: "code", label: t("Route", "मार्ग"), sorter: true },
+      { key: "name", label: t("Name", "नाम") },
+      { key: "stop_count", label: t("Stops", "पड़ाव"), type: "number" },
+    ],
     fields: [
-      { name: "name", label: t("Route name", "मार्ग नाम"), type: "text", required: true },
-      { name: "stops", label: t("Stops (one per line)", "पड़ाव (हर पंक्ति में एक)"), type: "textarea" },
+      { name: "code", label: t("Route code", "मार्ग कोड"), type: "text", required: true },
+      { name: "name", label: t("Name", "नाम"), type: "text", required: true },
+      { name: "name_hi", label: t("Name in Hindi", "हिन्दी में नाम"), type: "text" },
+      { name: "stops", label: t("Stops in order", "क्रम से पड़ाव"), type: "rows", required: true, addLabel: t("Add stop", "पड़ाव जोड़ें"), rowFields: [
+        { name: "sequence", label: t("No.", "क्रम"), type: "number", required: true },
+        { name: "name", label: t("Stop", "पड़ाव"), type: "text", required: true },
+        { name: "pickup_time", label: t("Pickup (HH:MM)", "पिकअप"), type: "text" },
+        { name: "drop_time", label: t("Drop (HH:MM)", "ड्रॉप"), type: "text" },
+        { name: "distance_km", label: t("Km from campus", "परिसर से किमी"), type: "number" },
+        { name: "monthly_fare", label: t("Fare ₹/month (empty = slab)", "किराया ₹/माह"), type: "money" },
+        { name: "latitude", label: t("Latitude", "अक्षांश"), type: "number" },
+        { name: "longitude", label: t("Longitude", "देशांतर"), type: "number" },
+      ] },
+    ],
+    actions: [
+      { key: "riders", label: t("Rider list (PDF)", "यात्री सूची (PDF)"), perm: "transport.report.view", method: "link", path: "", href: "/api/proxy/transport/reports/riders?route={id}&pdf=1", newTab: true },
+    ],
+  },
+  {
+    name: "transport/fare-slabs", module: "transport", label: t("Fare by distance", "दूरी अनुसार किराया"), perm: "transport.fare",
+    canCreate: true, canEdit: true, canDelete: true, exportable: false,
+    columns: [
+      { key: "from_km", label: t("From km", "से किमी"), type: "number" },
+      { key: "to_km", label: t("To km", "तक किमी"), type: "number" },
+      { key: "monthly_fare", label: t("Fare / month", "किराया / माह"), type: "money" },
+    ],
+    fields: [
+      { name: "from_km", label: t("From km", "से किमी"), type: "number", required: true },
+      { name: "to_km", label: t("To km", "तक किमी"), type: "number", required: true },
+      { name: "monthly_fare", label: t("Fare ₹ a month", "किराया ₹ प्रति माह"), type: "money", required: true },
     ],
   },
   {
     name: "transport/vehicles", module: "transport", label: t("Vehicles", "वाहन"), perm: "transport.vehicle",
-    searchable: true, canCreate: true, canEdit: true, canDelete: true,
+    canCreate: true, canEdit: true, canDelete: true, searchable: true,
     columns: [
-      { key: "number", label: t("Registration no.", "पंजीकरण सं.") },
-      { key: "route_name", label: t("Route", "मार्ग") },
+      { key: "registration_no", label: t("Registration", "पंजीकरण"), sorter: true },
+      { key: "kind", label: t("Type", "प्रकार"), type: "tag", options: VEHICLE_KIND },
+      { key: "route_code", label: t("Route", "मार्ग") },
+      { key: "riders", label: t("Riders", "यात्री"), type: "number" },
       { key: "capacity", label: t("Seats", "सीटें"), type: "number" },
-      { key: "active_riders", label: t("Riders", "यात्री"), type: "number" },
-      { key: "available_seats", label: t("Free seats", "खाली सीटें"), type: "number" },
+      { key: "driver_name", label: t("Driver", "चालक") },
+      { key: "driver_phone", label: t("Driver phone", "चालक फ़ोन") },
+      { key: "last_seen_at", label: t("GPS last seen", "जीपीएस अंतिम"), type: "datetime" },
     ],
     fields: [
-      { name: "number", label: t("Registration no.", "पंजीकरण सं."), type: "text", required: true },
+      { name: "registration_no", label: t("Registration number", "पंजीकरण संख्या"), type: "text", required: true },
+      { name: "kind", label: t("Type", "प्रकार"), type: "select", options: VEHICLE_KIND, required: true },
       { name: "capacity", label: t("Seats", "सीटें"), type: "number", required: true },
-      { name: "route", label: t("Route", "मार्ग"), type: "relation", relation: { resource: "transport/routes", label: "name" } },
+      { name: "route", label: t("Route", "मार्ग"), type: "relation", relation: { resource: "transport/routes", label: "code" } },
+      { name: "driver_name", label: t("Driver", "चालक"), type: "text" },
+      { name: "driver_phone", label: t("Driver phone", "चालक फ़ोन"), type: "text" },
+      { name: "helper_name", label: t("Helper", "सहायक"), type: "text" },
+      { name: "helper_phone", label: t("Helper phone", "सहायक फ़ोन"), type: "text" },
+      { name: "gps_device_id", label: t("GPS tracker / provider id", "जीपीएस ट्रैकर आईडी"), type: "text" },
+      { name: "gps_allowed_ips", label: t("GPS allowed IP addresses (optional)", "अनुमत IP (वैकल्पिक)"), type: "text" },
+      { name: "is_active", label: t("In service", "सेवा में"), type: "boolean" },
+    ],
+    actions: [
+      { key: "rotate", label: t("New GPS key", "नई जीपीएस कुंजी"), perm: "transport.vehicle.manage", method: "post", path: "rotate-key",
+        confirm: t("Issue a new GPS push key? The tracker must be updated with it.", "नई कुंजी जारी करें? ट्रैकर में अद्यतन करना होगा।") },
+    ],
+  },
+  {
+    name: "transport/documents", module: "transport", label: t("Vehicle papers", "वाहन कागज़ात"), perm: "transport.document",
+    canCreate: true, canEdit: true, canDelete: true, defaultSort: { field: "expires_on", order: "asc" },
+    filters: [{ field: "vehicle", label: t("Vehicle", "वाहन"), relation: { resource: "transport/vehicles", label: "registration_no" } }],
+    columns: [
+      { key: "vehicle_no", label: t("Vehicle", "वाहन") },
+      { key: "kind", label: t("Document", "दस्तावेज़"), type: "tag", options: VEHICLE_DOC },
+      { key: "number", label: t("Number", "संख्या") },
+      { key: "expires_on", label: t("Expires", "समाप्ति"), type: "date", sorter: true },
+      { key: "days_left", label: t("Days left", "शेष दिन"), type: "number" },
+    ],
+    fields: [
+      { name: "vehicle", label: t("Vehicle", "वाहन"), type: "relation", relation: { resource: "transport/vehicles", label: "registration_no" }, required: true },
+      { name: "kind", label: t("Document", "दस्तावेज़"), type: "select", options: VEHICLE_DOC, required: true },
+      { name: "number", label: t("Number", "संख्या"), type: "text" },
+      { name: "issued_on", label: t("Issued on", "जारी"), type: "date" },
+      { name: "expires_on", label: t("Expires on", "समाप्ति तिथि"), type: "date", required: true },
+      { name: "note", label: t("Note", "टिप्पणी"), type: "text" },
     ],
   },
   {
     name: "transport/assignments", module: "transport", label: t("Riders", "यात्री"), perm: "transport.assignment",
-    canCreate: true,
+    searchable: true,
+    filters: [
+      { field: "route", label: t("Route", "मार्ग"), relation: { resource: "transport/routes", label: "code" } },
+      { field: "vehicle", label: t("Vehicle", "वाहन"), relation: { resource: "transport/vehicles", label: "registration_no" } },
+    ],
     columns: [
       { key: "rider_name", label: t("Rider", "यात्री") },
-      { key: "rider_contact", label: t("Contact", "संपर्क") },
-      { key: "pickup_point", label: t("Pick-up", "पिक-अप") },
-      { key: "vehicle", label: t("Vehicle id", "वाहन") },
-      { key: "removed_at", label: t("Stopped", "बंद"), type: "datetime" },
-    ],
-    fields: [
-      { name: "vehicle", label: t("Vehicle", "वाहन"), type: "relation", relation: { resource: "transport/vehicles", label: "number" }, required: true },
-      { name: "rider_name", label: t("Rider", "यात्री"), type: "text", required: true },
-      { name: "rider_contact", label: t("Contact", "संपर्क"), type: "text" },
-      { name: "pickup_point", label: t("Pick-up point", "पिक-अप स्थान"), type: "text" },
+      { key: "rider_type", label: t("Type", "प्रकार"), type: "tag", options: [opt("student", "Student", "छात्र"), opt("staff", "Staff", "कर्मचारी")] },
+      { key: "route_code", label: t("Route", "मार्ग") },
+      { key: "stop_name", label: t("Stop", "पड़ाव") },
+      { key: "vehicle_no", label: t("Vehicle", "वाहन") },
+      { key: "start_date", label: t("From", "से"), type: "date", sorter: true },
+      { key: "end_date", label: t("Until", "तक"), type: "date" },
+      { key: "monthly_fare", label: t("Fare / month", "किराया / माह"), type: "money" },
     ],
     actions: [
-      { key: "unassign", label: t("Stop transport", "परिवहन बंद करें"), perm: "transport.assignment.manage", method: "post", path: "unassign", confirm: t("Stop transport for this rider?", "इस यात्री का परिवहन बंद करें?"), visibleWhen: { field: "removed_at", equals: null } },
+      { key: "change", label: t("Change stop / vehicle", "पड़ाव / वाहन बदलें"), perm: "transport.assignment.manage", method: "link", path: "", href: "/transport/assign?change={id}" },
+      { key: "stop_next", label: t("Stop from next month", "अगले माह से बंद"), perm: "transport.assignment.manage", method: "post", path: "stop",
+        body: { from_date: "{next_month}" }, visibleWhen: { field: "end_date", equals: null }, danger: true,
+        confirm: t("Stop transport from the 1st of next month? Fees stop from that month.", "अगले माह की 1 तारीख से परिवहन बंद करें? उस माह से शुल्क बंद होगा।") },
+      { key: "stop_today", label: t("Stop from today", "आज से बंद"), perm: "transport.assignment.manage", method: "post", path: "stop",
+        body: { from_date: "{today}" }, visibleWhen: { field: "end_date", equals: null }, danger: true,
+        confirm: t("Stop transport from today? This month stays charged; later months are cancelled.", "आज से परिवहन बंद करें? इस माह का शुल्क रहेगा; आगे के माह रद्द होंगे।") },
+    ],
+  },
+  {
+    name: "transport/alerts", module: "transport", label: t("GPS alerts", "जीपीएस अलर्ट"), perm: "transport.alert",
+    filters: [{ field: "kind", label: t("Alert", "अलर्ट"), options: ALERT_KIND }],
+    columns: [
+      { key: "at", label: t("Time", "समय"), type: "datetime", sorter: true },
+      { key: "kind", label: t("Alert", "अलर्ट"), type: "tag", options: ALERT_KIND },
+      { key: "vehicle_no", label: t("Vehicle", "वाहन") },
+      { key: "stop_name", label: t("Stop", "पड़ाव") },
+      { key: "detail", label: t("Detail", "विवरण") },
+      { key: "recipients", label: t("Parents alerted", "अभिभावकों को"), type: "number" },
+    ],
+  },
+  {
+    name: "transport/settings", module: "transport", label: t("Transport settings", "परिवहन सेटिंग्स"), perm: "transport.settings",
+    canEdit: true, exportable: false,
+    columns: [
+      { key: "speed_limit_kmph", label: t("Speed limit (km/h)", "गति सीमा"), type: "number" },
+      { key: "near_stop_meters", label: t("Near-stop alert (m)", "पड़ाव निकट (मी)"), type: "number" },
+      { key: "document_remind_days", label: t("Paper reminder (days)", "कागज़ात रिमाइंडर (दिन)"), type: "number" },
+    ],
+    fields: [
+      { name: "speed_limit_kmph", label: t("Speed limit (km/h)", "गति सीमा (किमी/घं)"), type: "number", required: true },
+      { name: "near_stop_meters", label: t('"Bus near your stop" distance (m)', "पड़ाव निकट दूरी (मी)"), type: "number", required: true },
+      { name: "document_remind_days", label: t("Remind before papers expire (days)", "समाप्ति से पहले रिमाइंडर (दिन)"), type: "number", required: true },
     ],
   },
 
-  // ------------------------------------------------------------ inventory
+  // ------------------------------------------------------------ inventory (ADR-010)
   {
     name: "inventory/items", module: "inventory", label: t("Items", "सामग्री"), perm: "inventory.item",
-    searchable: true, canCreate: true, canEdit: true, canDelete: true,
+    searchable: true, canCreate: true, canEdit: true,
+    filters: [
+      { field: "store", label: t("Store", "भंडार"), relation: { resource: "inventory/stores", label: "name" } },
+      { field: "kind", label: t("Type", "प्रकार"), options: ITEM_KIND },
+    ],
     columns: [
-      { key: "sku", label: t("Code", "कोड") },
+      { key: "code", label: t("Code", "कोड"), sorter: true },
       { key: "name", label: t("Item", "सामग्री"), sorter: true },
-      { key: "category", label: t("Category", "श्रेणी") },
-      { key: "quantity_available", label: t("In stock", "स्टॉक"), type: "number", sorter: true },
-      { key: "quantity_total", label: t("Total", "कुल"), type: "number" },
+      { key: "store_name", label: t("Store", "भंडार") },
+      { key: "kind", label: t("Type", "प्रकार"), type: "tag", options: ITEM_KIND },
+      { key: "quantity", label: t("In stock", "स्टॉक"), type: "number", sorter: true },
+      { key: "unit", label: t("Unit", "इकाई"), type: "tag", options: UNIT },
+      { key: "reorder_level", label: t("Reorder at", "पुनःआदेश स्तर"), type: "number" },
+      { key: "value", label: t("Value", "मूल्य"), type: "money" },
+      { key: "low", label: t("Low", "कम"), type: "bool" },
+      { key: "location", label: t("Location", "स्थान") },
     ],
     fields: [
-      { name: "sku", label: t("Code", "कोड"), type: "text", required: true },
+      { name: "store", label: t("Store", "भंडार"), type: "relation", relation: { resource: "inventory/stores", label: "name" }, required: true },
+      { name: "code", label: t("Code", "कोड"), type: "text", required: true },
       { name: "name", label: t("Item", "सामग्री"), type: "text", required: true },
+      { name: "name_hi", label: t("Name in Hindi", "हिन्दी में नाम"), type: "text" },
       { name: "category", label: t("Category", "श्रेणी"), type: "text" },
-      { name: "quantity_total", label: t("Quantity", "मात्रा"), type: "number", required: true },
+      { name: "unit", label: t("Unit", "इकाई"), type: "select", options: UNIT, required: true },
+      { name: "kind", label: t("Consumable or returnable", "उपभोग्य या वापसी योग्य"), type: "select", options: ITEM_KIND, required: true },
+      { name: "location", label: t("Location (room / rack)", "स्थान"), type: "text" },
+      { name: "reorder_level", label: t("Reorder level", "पुनःआदेश स्तर"), type: "number" },
+      { name: "opening_quantity", label: t("Opening stock", "प्रारंभिक स्टॉक"), type: "number", createOnly: true },
+      { name: "opening_rate", label: t("Opening rate ₹ per unit", "प्रारंभिक दर ₹"), type: "money", createOnly: true },
+    ],
+    actions: [
+      { key: "stock", label: t("Issue / ledger", "जारी / खाता"), perm: "inventory.item.view", method: "link", path: "", href: "/inventory/stock?item={id}" },
     ],
   },
   {
-    name: "inventory/issues", module: "inventory", label: t("Issue & return", "जारी एवं वापसी"), perm: "inventory.issue",
-    canCreate: true,
+    name: "inventory/issues", module: "inventory", label: t("Assets with staff", "कर्मचारियों के पास सामग्री"), perm: "inventory.issue",
+    searchable: true,
+    filters: [{ field: "status", label: t("Status", "स्थिति"), options: ISSUE_STATUS }],
     columns: [
       { key: "item_name", label: t("Item", "सामग्री") },
-      { key: "issued_to", label: t("Issued to", "प्राप्तकर्ता") },
-      { key: "created_at", label: t("Issued", "जारी"), type: "datetime", sorter: true },
-      { key: "returned_at", label: t("Returned", "वापस"), type: "datetime" },
-    ],
-    fields: [
-      { name: "item", label: t("Item", "सामग्री"), type: "relation", relation: { resource: "inventory/items", label: "name", search: true }, required: true },
-      { name: "issued_to", label: t("Issued to", "प्राप्तकर्ता"), type: "text", required: true },
+      { key: "staff_name", label: t("With", "किसके पास") },
+      { key: "quantity", label: t("Qty", "मात्रा"), type: "number" },
+      { key: "issued_on", label: t("Issued", "जारी"), type: "date", sorter: true },
+      { key: "due_back", label: t("Due back", "वापसी तिथि"), type: "date" },
+      { key: "status", label: t("Status", "स्थिति"), type: "tag", options: ISSUE_STATUS },
+      { key: "note", label: t("Note", "टिप्पणी") },
     ],
     actions: [
-      { key: "return", label: t("Return", "वापसी"), perm: "inventory.issue.manage", method: "post", path: "return", visibleWhen: { field: "returned_at", equals: null } },
+      { key: "ret", label: t("Returned", "वापस"), perm: "inventory.issue.manage", method: "post", path: "close", body: { outcome: "returned" }, visibleWhen: { field: "status", equals: "out" } },
+      { key: "dmg", label: t("Returned damaged", "क्षतिग्रस्त वापस"), perm: "inventory.issue.manage", method: "post", path: "close", body: { outcome: "damaged" },
+        prompt: { field: "note", label: t("What is damaged?", "क्या क्षतिग्रस्त है?") }, visibleWhen: { field: "status", equals: "out" } },
+      { key: "lost", label: t("Lost", "खो गया"), perm: "inventory.issue.manage", method: "post", path: "close", body: { outcome: "lost" }, danger: true,
+        prompt: { field: "note", label: t("How was it lost?", "कैसे खोया?") }, visibleWhen: { field: "status", equals: "out" } },
+    ],
+  },
+  {
+    name: "inventory/requisitions", module: "inventory", label: t("Requisitions", "मांग-पत्र"), perm: "inventory.requisition",
+    canCreate: true,
+    filters: [{ field: "status", label: t("Status", "स्थिति"), options: REQ_STATUS }],
+    columns: [
+      { key: "id", label: t("No.", "सं."), type: "number" },
+      { key: "department_name", label: t("Department", "विभाग") },
+      { key: "purpose", label: t("Purpose", "उद्देश्य") },
+      { key: "total", label: t("Estimated", "अनुमानित"), type: "money" },
+      { key: "approvals_needed", label: t("Approvals needed", "आवश्यक स्वीकृतियाँ"), type: "number" },
+      { key: "approved_by", label: t("Approved by", "स्वीकृतकर्ता") },
+      { key: "status", label: t("Status", "स्थिति"), type: "tag", options: REQ_STATUS },
+    ],
+    fields: [
+      { name: "department", label: t("Department", "विभाग"), type: "relation", relation: DEPT_REL, required: true },
+      { name: "purpose", label: t("Purpose", "उद्देश्य"), type: "text" },
+      { name: "lines", label: t("Items", "सामग्री"), type: "rows", required: true, addLabel: t("Add item", "सामग्री जोड़ें"), rowFields: [
+        { name: "item", label: t("Item", "सामग्री"), type: "relation", relation: ITEM_REL, required: true },
+        { name: "quantity", label: t("Qty", "मात्रा"), type: "number", required: true },
+        { name: "estimated_rate", label: t("Est. rate ₹", "अनुमानित दर ₹"), type: "money", required: true },
+      ] },
+    ],
+    actions: [
+      { key: "submit", label: t("Send for approval", "स्वीकृति हेतु भेजें"), perm: "inventory.requisition.manage", method: "post", path: "submit", visibleWhen: { field: "status", equals: "draft" } },
+      { key: "approve", label: t("Approve", "स्वीकृत"), perm: "inventory.requisition.approve", method: "post", path: "approve", visibleWhen: { field: "status", equals: "pending" } },
+      { key: "reject", label: t("Reject", "अस्वीकृत"), perm: "inventory.requisition.approve", method: "post", path: "reject", danger: true,
+        prompt: { field: "note", label: t("Reason for rejecting", "अस्वीकृति का कारण") }, visibleWhen: { field: "status", equals: "pending" } },
+      { key: "order", label: t("Raise order", "क्रय आदेश बनाएँ"), perm: "inventory.order.manage", method: "link", path: "", href: "/inventory/orders/create?requisition={id}", visibleWhen: { field: "status", equals: "approved" } },
+    ],
+  },
+  {
+    name: "inventory/orders", module: "inventory", label: t("Purchase orders", "क्रय आदेश"), perm: "inventory.order",
+    canCreate: true, searchable: true,
+    filters: [{ field: "status", label: t("Status", "स्थिति"), options: PO_STATUS }],
+    columns: [
+      { key: "number", label: t("Order no.", "आदेश सं.") },
+      { key: "vendor_name", label: t("Vendor", "विक्रेता") },
+      { key: "order_date", label: t("Date", "तिथि"), type: "date", sorter: true },
+      { key: "total", label: t("Total", "कुल"), type: "money" },
+      { key: "received_percent", label: t("Received %", "प्राप्त %"), type: "number" },
+      { key: "status", label: t("Status", "स्थिति"), type: "tag", options: PO_STATUS },
+    ],
+    fields: [
+      { name: "vendor", label: t("Vendor", "विक्रेता"), type: "relation", relation: VENDOR_REL, required: true },
+      { name: "requisition", label: t("Against approved requisition (its items are ordered)", "स्वीकृत मांग-पत्र"), type: "relation", relation: { resource: "inventory/requisitions", label: "label" } },
+      { name: "lines", label: t("Or items to order", "या आदेश की सामग्री"), type: "rows", addLabel: t("Add item", "सामग्री जोड़ें"), rowFields: [
+        { name: "item", label: t("Item", "सामग्री"), type: "relation", relation: ITEM_REL, required: true },
+        { name: "quantity", label: t("Qty", "मात्रा"), type: "number", required: true },
+        { name: "rate", label: t("Rate ₹", "दर ₹"), type: "money", required: true },
+      ] },
+      { name: "terms", label: t("Terms", "शर्तें"), type: "textarea" },
+    ],
+    actions: [
+      { key: "pdf", label: t("Order (PDF)", "आदेश (PDF)"), perm: "inventory.order.view", method: "link", path: "", href: "/api/proxy/inventory/orders/{id}/pdf", newTab: true },
+      { key: "receive", label: t("Receive goods", "माल प्राप्त करें"), perm: "inventory.order.receive", method: "link", path: "", href: "/inventory/receive?order={id}" },
+      { key: "cancel", label: t("Cancel", "रद्द"), perm: "inventory.order.manage", method: "post", path: "cancel", danger: true,
+        prompt: { field: "reason", label: t("Reason for cancelling", "रद्द करने का कारण") }, visibleWhen: { field: "status", equals: "open" } },
+    ],
+  },
+  {
+    name: "inventory/purchases", module: "inventory", label: t("Direct purchases", "प्रत्यक्ष क्रय"), perm: "inventory.purchase",
+    canCreate: true,
+    columns: [
+      { key: "bill_date", label: t("Bill date", "बिल तिथि"), type: "date", sorter: true },
+      { key: "vendor_name", label: t("Vendor", "विक्रेता") },
+      { key: "bill_no", label: t("Bill no.", "बिल सं.") },
+      { key: "total", label: t("Total", "कुल"), type: "money" },
+      { key: "created_by", label: t("Entered by", "दर्जकर्ता") },
+    ],
+    fields: [
+      { name: "vendor", label: t("Vendor", "विक्रेता"), type: "relation", relation: VENDOR_REL, required: true },
+      { name: "bill_no", label: t("Bill number", "बिल संख्या"), type: "text", required: true },
+      { name: "bill_date", label: t("Bill date", "बिल तिथि"), type: "date", required: true },
+      { name: "lines", label: t("Items", "सामग्री"), type: "rows", required: true, addLabel: t("Add item", "सामग्री जोड़ें"), rowFields: [
+        { name: "item", label: t("Item", "सामग्री"), type: "relation", relation: ITEM_REL, required: true },
+        { name: "quantity", label: t("Qty", "मात्रा"), type: "number", required: true },
+        { name: "rate", label: t("Rate ₹", "दर ₹"), type: "money", required: true },
+      ] },
+      { name: "note", label: t("Note", "टिप्पणी"), type: "text" },
+    ],
+  },
+  {
+    name: "inventory/moves", module: "inventory", label: t("Stock ledger", "स्टॉक खाता"), perm: "inventory.item",
+    filters: [
+      { field: "item", label: t("Item", "सामग्री"), relation: ITEM_REL },
+      { field: "kind", label: t("Movement", "गतिविधि"), options: MOVE_KIND },
+    ],
+    columns: [
+      { key: "at", label: t("Time", "समय"), type: "datetime", sorter: true },
+      { key: "item_name", label: t("Item", "सामग्री") },
+      { key: "kind", label: t("Movement", "गतिविधि"), type: "tag", options: MOVE_KIND },
+      { key: "quantity", label: t("Qty", "मात्रा"), type: "number" },
+      { key: "value", label: t("Value", "मूल्य"), type: "money" },
+      { key: "balance", label: t("Balance", "शेष"), type: "number" },
+      { key: "staff_name", label: t("Staff", "कर्मचारी") },
+      { key: "department_name", label: t("Department", "विभाग") },
+      { key: "vendor_name", label: t("Vendor", "विक्रेता") },
+      { key: "reference", label: t("Reference", "संदर्भ") },
+      { key: "note", label: t("Note", "टिप्पणी") },
+    ],
+  },
+  {
+    name: "inventory/vendors", module: "inventory", label: t("Vendors", "विक्रेता"), perm: "inventory.vendor",
+    canCreate: true, canEdit: true, canDelete: true, searchable: true,
+    columns: [
+      { key: "name", label: t("Vendor", "विक्रेता"), sorter: true },
+      { key: "contact_person", label: t("Contact", "संपर्क") },
+      { key: "phone", label: t("Phone", "फ़ोन") },
+      { key: "gstin", label: t("GSTIN", "जीएसटीआईएन") },
+    ],
+    fields: [
+      { name: "name", label: t("Vendor", "विक्रेता"), type: "text", required: true },
+      { name: "contact_person", label: t("Contact person", "संपर्क व्यक्ति"), type: "text" },
+      { name: "phone", label: t("Phone", "फ़ोन"), type: "text" },
+      { name: "email", label: t("Email", "ईमेल"), type: "email" },
+      { name: "gstin", label: t("GSTIN", "जीएसटीआईएन"), type: "text" },
+      { name: "address", label: t("Address", "पता"), type: "textarea" },
+    ],
+  },
+  {
+    name: "inventory/stores", module: "inventory", label: t("Stores", "भंडार"), perm: "inventory.store",
+    canCreate: true, canEdit: true, exportable: false,
+    columns: [
+      { key: "name", label: t("Store", "भंडार") },
+      { key: "kind", label: t("Type", "प्रकार"), type: "tag", options: STORE_KIND },
+      { key: "mess_name", label: t("Mess", "मेस") },
+    ],
+    fields: [
+      { name: "name", label: t("Store", "भंडार"), type: "text", required: true },
+      { name: "kind", label: t("Type", "प्रकार"), type: "select", options: STORE_KIND, required: true },
+      { name: "mess", label: t("Mess (for a provisions store)", "मेस (राशन भंडार हेतु)"), type: "relation", relation: { resource: "hostel/messes", label: "name" } },
+    ],
+  },
+  {
+    name: "inventory/settings", module: "inventory", label: t("Approval levels", "स्वीकृति स्तर"), perm: "inventory.settings",
+    canEdit: true, exportable: false,
+    columns: [{ key: "levels_text", label: t("Levels", "स्तर") }],
+    fields: [
+      { name: "approval_levels", label: t("Approvals by requisition amount", "राशि अनुसार स्वीकृतियाँ"), type: "rows", required: true, addLabel: t("Add level", "स्तर जोड़ें"), rowFields: [
+        { name: "up_to", label: t("Up to ₹ (empty = above)", "₹ तक (खाली = ऊपर)"), type: "money" },
+        { name: "approvals", label: t("Approvals", "स्वीकृतियाँ"), type: "number", required: true },
+      ] },
     ],
   },
 
@@ -1842,6 +2122,11 @@ export const PAGES: PageDef[] = [
   { name: "hr/self", module: "hr", label: t("My leave & payslips", "मेरा अवकाश एवं वेतन पर्ची"), perm: "hr.self.view", path: "/hr/me" },
   { name: "payroll/da", module: "payroll", label: t("Revise DA", "महँगाई भत्ता संशोधित करें"), perm: "payroll.da.manage", path: "/payroll/da" },
   { name: "payroll/reports-page", module: "payroll", label: t("Payroll reports", "वेतन रिपोर्ट"), perm: "payroll.report.view", path: "/payroll/reports" },
+  { name: "transport/live", module: "transport", label: t("Live map", "लाइव मानचित्र"), perm: "transport.vehicle.view", path: "/transport/live" },
+  { name: "transport/assign", module: "transport", label: t("Assign a rider", "यात्री जोड़ें"), perm: "transport.assignment.manage", path: "/transport/assign" },
+  { name: "transport/reports-page", module: "transport", label: t("Transport reports", "परिवहन रिपोर्ट"), perm: "transport.report.view", path: "/transport/reports" },
+  { name: "inventory/stock", module: "inventory", label: t("Issue & stock", "जारी एवं स्टॉक"), perm: "inventory.item.view", path: "/inventory/stock" },
+  { name: "inventory/reports-page", module: "inventory", label: t("Inventory reports", "भंडार रिपोर्ट"), perm: "inventory.report.view", path: "/inventory/reports" },
   { name: "fees/collect", module: "fees", label: t("Collect fees", "शुल्क जमा"), perm: "fees.receipt.manage", path: "/fees/collect" },
   { name: "fees/reports-page", module: "fees", label: t("Fee reports", "शुल्क रिपोर्ट"), perm: "fees.report.view", path: "/fees/reports" },
 ];
