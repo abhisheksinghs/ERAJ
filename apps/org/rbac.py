@@ -63,6 +63,7 @@ PERMISSIONS: dict[str, list[str]] = {
         "-exam.result.publish",
         "timetable.*.view",
         "learning.*",
+        "-learning.all_sections",
         "library.*.view",
         *STAFF_SELF,
     ],

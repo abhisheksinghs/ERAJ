@@ -122,7 +122,20 @@ def section_grid(section: Section, on: date | None = None) -> dict:
         "slots": [{"slot": s.pk, "number": s.number, "label": s.label, "start": s.start, "end": s.end, "is_break": s.is_break,
                    "days": sorted(s.weekdays)} for s in slots],
         "cells": [{"day": d, "slot": sid, **c} for (d, sid), c in cells.items()],
+        "online": _online(section, on),
     }
+
+
+def _online(section, on: date | None) -> list[dict]:
+    """Online classes scheduled for the section on that date (ADR-011)."""
+    if on is None:
+        return []
+    from django.utils import timezone
+
+    from apps.learning.services import classes_on
+
+    return [{"id": c.pk, "title": c.title, "subject": c.subject.name, "start": timezone.localtime(c.starts_at).time(),
+             "end": timezone.localtime(c.ends_at).time()} for c in classes_on(section, on)]
 
 
 def _by_time(entries, title: str, kind: str, extra=None) -> dict:
