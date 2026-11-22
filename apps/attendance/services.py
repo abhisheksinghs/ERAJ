@@ -234,6 +234,10 @@ def ingest_punch(*, branch, code: str, at: datetime, device: AttendanceDevice | 
                 defaults={"branch": branch, "section": enr.section if enr else None, "status": AttendanceRecord.Status.PRESENT,
                           "source": AttendanceRecord.Source.DEVICE, "marked_by": f"device:{device.serial_no if device else 'import'}"},
             )
+    elif staff is not None:  # staff punches → HR attendance (ADR-009)
+        from apps.hr.services import mark_from_punch
+
+        mark_from_punch(staff=staff, at=at)
     return punch
 
 

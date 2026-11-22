@@ -17,6 +17,9 @@ from fnmatch import fnmatchcase
 
 from apps.org.models import Role
 
+# Every staff login can see its own leave and payslips and apply for leave (ADR-009).
+STAFF_SELF = ["hr.self.*", "payroll.self.view"]
+
 # Read-only access to the shared registry that most staff roles need in order
 # to pick a student, staff member or class in their own module. (Branch names
 # for the switcher come from /api/auth/me, so staff roles get no Settings screen.)
@@ -34,6 +37,9 @@ PERMISSIONS: dict[str, list[str]] = {
         "-fees.concession.approve",
         "payroll.*",
         "-payroll.run.reverse",
+        "hr.profile.view",
+        "hr.attendance.view",
+        *STAFF_SELF,
         "hostel.mess*.view",
         "transport.*.view",
         "reports.*",
@@ -56,12 +62,14 @@ PERMISSIONS: dict[str, list[str]] = {
         "timetable.*.view",
         "learning.*",
         "library.*.view",
+        *STAFF_SELF,
     ],
-    Role.LIBRARIAN: [*REGISTRY_READ, "library.*", "-library.fine.waive"],
-    Role.WARDEN: [*REGISTRY_READ, "hostel.*", "fees.*.view"],
-    Role.TRANSPORT: [*REGISTRY_READ, "transport.*", "fees.*.view"],
-    Role.HR: [*REGISTRY_READ, "people.staff.*", "people.department.*", "hr.*", "payroll.*.view"],
-    Role.STORE: [*REGISTRY_READ, "inventory.*", "-inventory.stock.adjust", "-inventory.requisition.approve"],
+    Role.LIBRARIAN: [*REGISTRY_READ, "library.*", "-library.fine.waive", *STAFF_SELF],
+    Role.WARDEN: [*REGISTRY_READ, "hostel.*", "fees.*.view", *STAFF_SELF],
+    Role.TRANSPORT: [*REGISTRY_READ, "transport.*", "fees.*.view", *STAFF_SELF],
+    Role.HR: [*REGISTRY_READ, "people.staff.*", "people.department.*", "hr.*", "-hr.attendance.correct_past",
+              "payroll.*.view", *STAFF_SELF],
+    Role.STORE: [*REGISTRY_READ, "inventory.*", "-inventory.stock.adjust", "-inventory.requisition.approve", *STAFF_SELF],
     # Portal roles: their querysets are restricted to their own children/self
     # in the portal API; these patterns only open the portal endpoints.
     Role.PARENT: ["portal.*"],

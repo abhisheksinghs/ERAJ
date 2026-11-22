@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<style>
+  @page { size: A4; margin: 14mm; }
+  body { font-family: "Noto Sans", "Noto Sans Devanagari", sans-serif; font-size: 9.5pt; color: #1f2430; }
+  .slip { page-break-after: always; }
+  .slip:last-child { page-break-after: auto; }
+  header { border-bottom: 1.5pt solid #1e2761; padding-bottom: 6pt; margin-bottom: 8pt; display: flex; gap: 12pt; align-items: center; }
+  header img { height: 40pt; }
+  h1 { font-size: 14pt; margin: 0; color: #1e2761; }
+  h2 { font-size: 10.5pt; margin: 2pt 0 0; color: #5b6475; font-weight: 600; }
+  .who { width: 100%; border-collapse: collapse; margin-bottom: 8pt; }
+  .who td { padding: 2pt 4pt; border: none; }
+  .who td.k { color: #5b6475; width: 18%; }
+  .cols { display: flex; gap: 10pt; }
+  .cols > div { flex: 1; }
+  table.amt { width: 100%; border-collapse: collapse; }
+  table.amt th, table.amt td { border: 0.6pt solid #c9cedb; padding: 3pt 6pt; }
+  table.amt th { background: #f1f3f8; text-align: left; }
+  table.amt td.n, table.amt th.n { text-align: right; white-space: nowrap; }
+  table.amt tr.tot td { font-weight: 700; background: #f7f8fb; }
+  .net { margin-top: 10pt; border: 1pt solid #1e2761; padding: 6pt 8pt; }
+  .net b { font-size: 13pt; color: #1e2761; }
+  .emp { margin-top: 8pt; font-size: 8.5pt; color: #5b6475; }
+  .foot { margin-top: 18pt; font-size: 8pt; color: #5b6475; }
+</style>
+</head>
+<body>
+{% for p in pages %}{% with s=p.s %}
+<div class="slip">
+  <header>
+    {% if branch.logo %}<img src="{{ branch.logo.path }}">{% endif %}
+    <div><h1>{{ branch.name }}</h1><h2>Payslip for {{ s.month|date:"F Y" }}</h2></div>
+  </header>
+  <table class="who">
+    <tr><td class="k">Name</td><td><b>{{ s.staff.full_name }}</b>{% if s.staff.name_hi %} / {{ s.staff.name_hi }}{% endif %}</td>
+        <td class="k">Employee code</td><td>{{ s.staff.employee_code }}</td></tr>
+    <tr><td class="k">Designation</td><td>{{ s.staff.designation|default:"—" }}</td>
+        <td class="k">Department</td><td>{{ s.staff.department.name|default:"—" }}</td></tr>
+    <tr><td class="k">Pay rules</td><td>{{ s.rule_set_code }}{% if s.level %} · Level {{ s.level }} cell {{ s.cell_index }}{% endif %}</td>
+        <td class="k">Basic (full month)</td><td>₹{{ s.basic_full|floatformat:0 }}</td></tr>
+    <tr><td class="k">Days</td><td>{{ s.days_in_month }} · paid {{ s.paid_days|floatformat:"-1" }} · LOP {{ s.lop_days|floatformat:"-1" }}</td>
+        <td class="k">PAN / UAN</td><td>{{ p.profile.pan|default:"—" }} / {{ p.profile.uan|default:"—" }}</td></tr>
+    <tr><td class="k">Bank</td><td>{% if s.bank_account %}••••{{ s.bank_account|slice:"-4:" }} · {{ s.ifsc }}{% else %}—{% endif %}</td>
+        <td class="k">PRAN / ESIC</td><td>{{ p.profile.pran|default:"—" }} / {{ p.profile.esic_ip|default:"—" }}</td></tr>
+  </table>
+  <div class="cols">
+    <div>
+      <table class="amt"><tr><th>Earnings</th><th class="n">₹</th></tr>
+        {% for ln in p.earnings %}<tr><td>{{ ln.name }}</td><td class="n">{{ ln.amount|floatformat:0 }}</td></tr>{% endfor %}
+        <tr class="tot"><td>Gross</td><td class="n">{{ s.gross|floatformat:0 }}</td></tr></table>
+    </div>
+    <div>
+      <table class="amt"><tr><th>Deductions</th><th class="n">₹</th></tr>
+        {% for ln in p.deductions %}<tr><td>{{ ln.name }}</td><td class="n">{{ ln.amount|floatformat:0 }}</td></tr>{% empty %}<tr><td>—</td><td class="n">0</td></tr>{% endfor %}
+        <tr class="tot"><td>Total deductions</td><td class="n">{{ s.total_deductions|floatformat:0 }}</td></tr></table>
+    </div>
+  </div>
+  <div class="net">Net pay <b>₹{{ s.net_pay|floatformat:0 }}</b> — {{ p.words }}</div>
+  {% if p.employer %}<div class="emp">Employer contributions (not part of net pay):
+    {% for ln in p.employer %}{{ ln.name }} ₹{{ ln.amount|floatformat:0 }}{% if not forloop.last %} · {% endif %}{% endfor %}</div>{% endif %}
+  <div class="foot">Computer-generated payslip{% if s.run.status != "locked" %} — DRAFT, not final{% endif %} · printed {{ printed_at|date:"d-m-Y H:i" }}</div>
+</div>
+{% endwith %}{% endfor %}
+</body>
+</html>

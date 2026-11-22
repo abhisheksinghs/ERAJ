@@ -108,9 +108,17 @@ class StaffViewSet(BranchScopedViewSetMixin, viewsets.ModelViewSet):
     serializer_class = StaffSerializer
     perm_resource = "people.staff"
     action_perms = {"import_file": "people.staff.manage"}
-    filterset_fields = ["department", "status", "employment_type"]
+    filterset_fields = ["department", "employment_type"]
     search_fields = ["full_name", "employee_code", "phone", "email"]
     ordering_fields = ["full_name", "employee_code", "date_joined"]
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        if self.action == "list":  # left staff drop out of active lists, stay in history (?status=left|all)
+            from apps.hr.services import directory_filter
+
+            qs = qs.filter(directory_filter(self.request.query_params))
+        return qs
 
     @action(detail=False, methods=["post"], url_path="import", parser_classes=[MultiPartParser, FormParser])
     def import_file(self, request):

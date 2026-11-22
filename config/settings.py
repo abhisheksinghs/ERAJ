@@ -240,6 +240,12 @@ SPECTACULAR_SETTINGS = {
         "TicketStatusEnum": "apps.hostel.models.MaintenanceTicket.Status",
         "AttendanceModeEnum": "apps.attendance.models.AttendanceSettings.Mode",
         "PaymentModeEnum": "apps.fees.models.Receipt.Mode",
+        "StaffAttendanceStatusEnum": "apps.hr.models.StaffAttendance.Status",
+        "LeaveStatusEnum": "apps.hr.models.LeaveApplication.Status",
+        "PayrollRunStatusEnum": "apps.payroll.models.PayrollRun.Status",
+        "LoanStatusEnum": "apps.payroll.models.Loan.Status",
+        "StaffGenderEnum": "apps.hr.models.StaffProfile.Gender",
+        "StaffStatusEnum": "apps.people.models.Staff.Status",
     },
 }
 
