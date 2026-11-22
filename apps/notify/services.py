@@ -113,10 +113,15 @@ def _queue(msgs: list[Message]) -> None:
         return
 
     def go():
+        import logging
+
         from apps.notify.tasks import send_message
 
         for pk in ids:
-            send_message.delay(schema, pk)
+            try:
+                send_message.delay(schema, pk)
+            except Exception:  # broker down: the row stays queued; release_held re-queues it (ADR-011)
+                logging.getLogger("eraj.notify").exception("could not queue message %s", pk)
 
     transaction.on_commit(go)
 
@@ -230,9 +235,11 @@ def release_held(now: datetime | None = None) -> int:
     now = now or timezone.now()
     ids = list(Message.objects.filter(status=S.HELD, send_after__lte=now).values_list("pk", flat=True))
     Message.objects.filter(pk__in=ids).update(status=S.QUEUED, updated_at=now)
-    msgs = list(Message.objects.filter(pk__in=ids))
+    # also anything left queued for 10+ minutes (broker was down, worker restarted mid-send)
+    stale = list(Message.objects.filter(status=S.QUEUED, updated_at__lt=now - timedelta(minutes=10)).values_list("pk", flat=True))
+    msgs = list(Message.objects.filter(pk__in=set(ids) | set(stale)))
     _queue(msgs)
-    return len(ids)
+    return len(msgs)
 
 
 def apply_receipt(*, provider_ref: str, status: str, error: str = "", at: datetime | None = None) -> int:
