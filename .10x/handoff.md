@@ -1,24 +1,22 @@
 # Handoff
 
-**From:** M3 (2026-10-25) **To:** SDE — M4
+**From:** M4 (2026-11-22) **To:** SDE — M5 (Transport, Inventory)
 
-- M2 and M3 built and pushed. ADRs 007 (hostel/mess/gate) and 008 (attendance/exam/timetable).
-- M3: Attendance (one-save marking, daily/per-lecture, past corrections Admin-only + audit,
-  holidays, register/daily/below-%/long-absent reports, ZKTeco-ADMS + JSON push + Excel/CSV punch
-  import), Exam (scales/bands, exams with weightage, theory/practical, date sheet, subject-teacher
-  marks grid, lock/unlock, computed results with competition ranks, analysis, annual weighting,
-  SGPA/CGPA, report cards PDF), Timetable (bell schedules, rooms, teacher limits, clash-checked
-  builder by time overlap, section/teacher/room views + PDF, substitution with ranked suggestions,
-  register + PDF). Shared `people.TeachingAssignment`.
-- Verification: 131 Django tests + 26 pytest; CI green; browser walkthroughs (each needs a fresh
-  `seed_demo_tenants`): smoke-m1 14/14, smoke-m2-fees 19/19, smoke-m2-hostel 12/12,
-  smoke-m3 14/14, smoke-m3-timetable 10/10.
-- Hooks waiting for M4: `apps.timetable.services.absent_on()` imports `apps.hr.services.staff_on_leave`
-  when it exists (approved HR leave → substitution list); staff `Punch` rows → HR attendance.
-- Still open from M2: hand-built occupancy board / headcount / contractor-bill pages; Celery beat
-  for `bill_mess_month` and `apply_late_fines`; provisions + cost/head (M5); real alerts (M6).
-- M4 order: HR (profile, documents, departments/designations, staff attendance incl. punches,
-  leave types/balances/approval, joining/exit, reports), then Payroll (central + Bihar pay rules,
-  pay matrix, DA + arrears, PF/NPS/ESI/PT/TDS settings, LOP from HR, loans, run draft→review→lock,
-  payslips, bank sheet, ECR/ESIC/PT/24Q data). ADR first.
+- M4 built, verified and pushed. ADR-009 (HR + payroll).
+  - HR: profiles with payroll identity (restricted, masked), designations, documents, one-save staff
+    attendance (+ punches), leave with reserved pending days, approve/reject/cancel, exit, register
+    PDF, reports, self-service `/api/hr/me/*`. `staff_on_leave()` feeds timetable substitution.
+  - Payroll: central + Bihar rule sets (matrix, DA history, HRA X/Y/Z, components), statutory
+    settings (PF/EPS/NPS/ESI/PT/TDS as data), structures, pure `calc.py`, runs draft → review →
+    locked with Admin reversal, increments, DA arrears with markers, loans, one-time payments,
+    payslip PDF, bank sheet, register, ECR, ESIC, PT, 24Q, Form 16, statutory, YTD; own payslips.
+- Verification: 165 Django + 26 pytest; walkthroughs (fresh `seed_demo_tenants` each):
+  smoke-m1 14/14, m2-fees 19/19, m2-hostel 12/12, m3 14/14, m3-timetable 10/10, m4 20/20.
+  Note: `next start` must be restarted (kill port 3000) after each `next build`.
+- Waiting for M5: Inventory issue-to-staff from the shared staff list (HR-1 second half);
+  hostel provisions + cost per head; GPS fake adapter.
+- Client inputs needed (payroll): which staff on central vs Bihar rules; PF vs NPS per staff;
+  actual DA %, HRA %, PT slabs, components; whether arrear PF goes in the month's ECR or a separate
+  arrear ECR. Seeds carry sample values marked "(sample)".
+- Blocker B2 (VPS + DNS) still open — staging deploy is M7.
 - Commits: author Abhishek Singh, no AI attribution.

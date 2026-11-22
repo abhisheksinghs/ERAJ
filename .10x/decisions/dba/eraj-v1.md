@@ -47,3 +47,4 @@ Not served directly; authenticated download views to be added where files are sh
   (staff, status); Payslip(staff, month) for YTD and arrears scans.
 - Money DecimalField(12,2); percentages DecimalField(6,3); slabs as validated JSON lists.
 - Payslip rows are snapshots — never recomputed after lock; reversal flips status, rows kept.
+- Built as designed. `hr.0001_initial`, `payroll.0001_initial` regenerated; `makemigrations --check` clean.

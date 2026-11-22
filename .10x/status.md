@@ -1,6 +1,6 @@
 # Eraj — Project Status
 
-**Phase:** Implementation — M0–M3 done; M4 in progress
+**Phase:** Implementation — M0–M4 done; M5 next
 **Updated:** 2026-11-22
 **Target:** all modules running on staging by **2026-11-11** (missed — work paused 25 Oct–22 Nov; new date to agree with owner) (owner on leave, full-time); client acceptance testing after that.
 **Scope source:** `.10x/specs/2026-10-25-eraj-v1-scope.md` (summary of the client scope doc)
@@ -20,8 +20,8 @@
 | Strategy | Done | cto/eraj-v1.md, product-manager/eraj-v1.md |
 | Design (ADRs) | Done | ADR-001 … ADR-009 |
 | Planning | Done | engineering-manager/eraj-v1.md (M0–M8), senior-engineer/eraj-v1.md |
-| Implementation | In progress | M0–M3 done 2026-10-25; M4 resumed 2026-11-22 |
-| Verification | Not started | |
+| Implementation | In progress | M0–M3 done 2026-10-25; M4 done 2026-11-22; M5 next |
+| Verification | Per milestone | QA/security notes per milestone in decisions/qa, decisions/security, reviews/ |
 | Delivery | Not started | |
 
 ## Milestones
@@ -31,7 +31,7 @@
 | M1 | 27 Oct | org, people, RBAC, branch mixin, fresh migrations, staff shell | Done 25 Oct — backend 63 Django + 23 pytest green; frontend `next build` ok; browser walkthrough 14/14 (e2e/smoke-m1.mjs) |
 | M2 | 30 Oct | Fees ledger, Library, Hostel + Mess + visitors | Built 25 Oct (ahead of 30 Oct) — 112 Django + 26 pytest green, CI green; walkthroughs M1 14/14, Fees 19/19, Hostel 12/12. Open: provisions + cost-per-head wait for Inventory (M5); parent alerts log-only until M6 |
 | M3 | 2 Nov | Attendance, Exam, Timetable | Built 25 Oct (ahead of 2 Nov) — ADR-008; 131 Django + 26 pytest green; walkthroughs M3 14/14, Timetable 10/10 (all five e2e green). Open: device brands/models to confirm with client; HR leave → substitution list arrives with M4 |
-| M4 | 5 Nov | HR, Payroll | In progress (resumed 22 Nov) — ADR-009 |
+| M4 | 5 Nov | HR, Payroll | Built 22 Nov — ADR-009; 165 Django + 26 pytest green; walkthroughs smoke-m4 20/20 and m1/m2/m3 all green; Next 16.4.6, npm audit 0. Open: inventory issue-to-staff (M5); client to confirm staff → rule set, PF vs NPS, real DA/HRA/PT/TDS values, arrear-ECR handling |
 | M5 | 7 Nov | Transport, Inventory | Not started |
 | M6 | 9 Nov | Alerts, Portal, Learning | Not started |
 | M7 | 10 Nov | Hindi pass, import templates, staging deploy | Not started |

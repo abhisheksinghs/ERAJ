@@ -46,3 +46,39 @@ generic `ResourceList` / `ResourceForm` / `ImportModal`; dashboard; bilingual si
   Removed; branch names for the switcher come from `/auth/me`.
 - Default branch was alphabetical; now the branch where the user holds a working role.
 - Refine toasts showed raw keys ("notifications.success", "library/issue").
+
+## M4 HR + Payroll (done 2026-11-22, ADR-009)
+Backend
+- `apps.hr`: StaffProfile (payroll identity, masked lists), Designation, StaffDocument (checked,
+  private download), StaffAttendance (one-save day sheet, punches → present, register + PDF),
+  LeaveType/LeaveBalance/LeaveApplication (pending reserved, approve/reject/cancel, unpaid → LOP),
+  exit, reports (headcount, balances, absentees), self-service `/api/hr/me/*`.
+  `staff_on_leave()` now feeds timetable substitution; staff punches feed HR attendance.
+- `apps.payroll` rewritten: rule sets (matrix, DA history, HRA X/Y/Z, components), statutory
+  settings, structures (+ per-staff overrides), pure `calc.py`, run lifecycle (create with
+  increments → recompute → review → lock → Admin reversal), DA arrears with `ArrearPayment`
+  markers, loans with `LoanRecovery`, one-time payments, exports (payslip PDF, bank sheet, register,
+  ECR, ESIC, PT, 24Q, Form 16, statutory summary, YTD), own payslips for staff.
+- People staff list defaults to active staff (`?status=left|all` for history).
+- RBAC: `STAFF_SELF` (hr.self.*, payroll.self.view) for every staff role; accountant gets
+  hr.profile.view + hr.attendance.view; HR can't correct past attendance (Admin only).
+Frontend
+- Registry: HR module (staff joining & exit, profiles, designations, leave applications,
+  balances, leave types, attendance records); Payroll (monthly payroll with workflow + file links,
+  payslips, structures, loans, bonus & arrears, pay rules, pay matrix, components, DA history,
+  statutory settings). Pages: /hr/mark, /hr/documents, /hr/reports, /hr/me, /payroll/da,
+  /payroll/reports. Action bodies support `{today}`.
+- Next.js 16.4.3 → 16.4.6 (npm audit advisories).
+Demo data: HR role users; leave types; profiles; central + Bihar sample rule sets; PF/NPS/ESI
+structures; advance; last month's attendance and payroll locked; this month's in draft.
+
+### Deviations
+- Inventory "issue to staff" (HR-1 second half) waits for M5's inventory rebuild; HR-1 test covers
+  Library and the shared staff list Inventory will use.
+- Arrear PF/NPS is deducted in the paying month and included in that month's ECR wages
+  (no separate arrear ECR) — accountant to confirm.
+
+### Tech debt
+- Payroll run list shows `month` as a date (01-11-2026), not "Nov 2026".
+- `hr/documents` is a hand-built page (generic form has no file field yet).
+- TDS: new-regime projection only; old-regime staff use the fixed monthly figure.
