@@ -1,6 +1,6 @@
 # Eraj — Project Status
 
-**Phase:** Implementation — M0–M5 done; M6 in progress
+**Phase:** Implementation — M0–M6 done; M7 next
 **Updated:** 2026-11-22
 **Target:** all modules running on staging by **2026-11-11** (missed — work paused 25 Oct–22 Nov; new date to agree with owner) (owner on leave, full-time); client acceptance testing after that.
 **Scope source:** `.10x/specs/2026-10-25-eraj-v1-scope.md` (summary of the client scope doc)
@@ -20,7 +20,7 @@
 | Strategy | Done | cto/eraj-v1.md, product-manager/eraj-v1.md |
 | Design (ADRs) | Done | ADR-001 … ADR-011 |
 | Planning | Done | engineering-manager/eraj-v1.md (M0–M8), senior-engineer/eraj-v1.md |
-| Implementation | In progress | M0–M3 done 2026-10-25; M4, M5 done 2026-11-22; M6 next |
+| Implementation | In progress | M0–M3 done 2026-10-25; M4, M5, M6 done 2026-11-22; M7 next |
 | Verification | Per milestone | QA/security notes per milestone in decisions/qa, decisions/security, reviews/ |
 | Delivery | Not started | |
 
@@ -33,7 +33,7 @@
 | M3 | 2 Nov | Attendance, Exam, Timetable | Built 25 Oct (ahead of 2 Nov) — ADR-008; 131 Django + 26 pytest green; walkthroughs M3 14/14, Timetable 10/10 (all five e2e green). Open: device brands/models to confirm with client; HR leave → substitution list arrives with M4 |
 | M4 | 5 Nov | HR, Payroll | Built 22 Nov — ADR-009; 165 Django + 26 pytest green; walkthroughs smoke-m4 20/20 and m1/m2/m3 all green; Next 16.4.6, npm audit 0. Open: inventory issue-to-staff (M5); client to confirm staff → rule set, PF vs NPS, real DA/HRA/PT/TDS values, arrear-ECR handling |
 | M5 | 7 Nov | Transport, Inventory | Built 22 Nov — ADR-010; 182 Django tests green; walkthroughs smoke-m5 21/21 and m1–m4 all green; npm audit 0. Open: GPS provider name/API; real parent alerts (M6); X-Forwarded-For overwrite + positions retention + paper reminders on Celery beat (M7) |
-| M6 | 9 Nov | Alerts, Portal, Learning | In progress (22 Nov) — ADR-011 |
+| M6 | 9 Nov | Alerts, Portal, Learning | Built 22 Nov — ADR-011; 216 Django + 26 pytest green; walkthroughs smoke-m6 22/22 (phone viewport) and m1–m5 all green; npm audit 0. Open: DLT template ids + WhatsApp Business account (staging stays log-only); Celery worker + beat on staging (M7); OTP/positions retention jobs (M7) |
 | M7 | 10 Nov | Hindi pass, import templates, staging deploy | Not started |
 | M8 | 11 Nov | Scenario run on staging, QA + security reports | Not started |
 

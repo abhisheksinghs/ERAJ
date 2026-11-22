@@ -101,3 +101,34 @@ structures; advance; last month's attendance and payroll locked; this month's in
   for requisitions yet); staff transport is free (no payroll deduction).
 - Tech debt: OSM public tiles (switch to a paid tile provider at scale); daily paper-reminder task
   not yet on Celery beat (M7 with the other periodic jobs).
+
+## M6 Alerts + Portal + Learning (done 2026-11-22, ADR-011)
+- `apps.notify`: channels (log-only / SMS HTTP gateway / WhatsApp Cloud / SMTP), rules per event,
+  templates en/hi with approved-template ids, quiet hours (held → released by beat), opt-out per
+  guardian + channel, delivery log with receipts (WhatsApp signed webhook, SMS DLR token), monthly
+  counts, notices with read receipts. `core.notify.guardian/staff_role` keep their signatures and
+  now raise real events; `staff_users` added. Login codes are redacted from the log once sent.
+- `apps.learning`: homework + files, submissions (late after the due day; locked once checked),
+  grading, study material (file or link), online classes in the section timetable + join records,
+  MCQ tests (time limit capped at closing, auto-submit, scoring), class diary, reports. Teachers act
+  only on their own section × subject (`learning.all_sections` for Admin).
+- `apps.portal`: OTP login (hash, 5 min, 5 tries, 3/15 min, same answer for unknown numbers), one
+  parent login per mobile across branches, `access.child_for` gate, child endpoints (home,
+  attendance, fees + receipt PDF, published report cards, timetable, homework/submit, material,
+  classes/join, tests, outpass, menu, bus, notices/read, diary, leave, change requests); office side
+  (leave decisions by class teacher, change requests, student logins). Approved day-scholar leave
+  pre-marks attendance and is the default when the section is marked.
+- Frontend: registry entries (Learning, Alerts & notices, Parent portal); pages /learning/review,
+  /learning/test (question builder + scores), /learning/upload, /learning/reports, /notify/reads,
+  /notify/usage; `datetime` form field; phone-first portal (`/portal/login` two-step OTP,
+  `/portal` with child switcher, bottom bar, 12 sections, test runner, Leaflet bus map). Proxy takes
+  the child's branch per request (`X-Branch` header or `_branch` on download links). Staff login
+  sends student/parent logins to the portal.
+- Deviations: any guardian linked to the child (not only the primary) can sign in — the mother as
+  well as the father; alerts still go to the primary. A changed mobile moves only that child's
+  record; the old login keeps other children still on the old number.
+- Fixed on the way: kombu was unpinned (5.7 needs redis-py ≥ 6.1 → every queued alert failed
+  outside tests) — pinned 5.4.2; a broker outage now leaves the message queued (re-queued by the
+  5-minute beat) instead of a 500 after the action committed.
+- Tech debt: portal is English/Hindi strings inline (M7 Hindi pass reviews them); OTP throttle is
+  per phone + DRF per-IP scope, no CAPTCHA.

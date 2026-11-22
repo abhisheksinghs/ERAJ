@@ -43,3 +43,24 @@ months; one browser walkthrough (`e2e/smoke-m4.mjs`) across HR, accountant, Admi
 - TR-6 "position under a minute old" and the parent alert are proven with the push endpoint and the
   log-only notifier; a real tracker/provider and real SMS/WhatsApp delivery remain to be tested (GPS
   provider not yet named; channels in M6).
+
+## M6 Alerts + Portal + Learning (2026-11-22)
+- `apps.notify` 10 tests (ALR-1…4, quiet hours, opt-out, fallback, receipts, retries); `apps.learning`
+  10 (LRN-1…4 staff side, attachments by content, late, class window, test time cap, questions locked,
+  teacher scope, reports); `apps.portal` 14 (PORTAL-1…5, OTP unknown number/rate limit/lockout/
+  expiry, endpoint-by-endpoint IDOR sweep over every child route and method, staff/other parents see
+  nothing, LRN-1 parent side, student test + join, leave → attendance, change request, notice reads).
+- Browser: smoke-m6 22/22 on a 390 px phone viewport for parent/student and desktop for staff —
+  OTP login, two children, absent shows at once, receipt + published report card (unpublished 404),
+  outpass → warden → approved, another child by URL refused, PDF attached / photo submitted / graded
+  / grade on portal, late flag, class in timetable + join record, 10-question test scored, notice
+  read receipt, leave → class teacher, change request applied on approval, OTP never readable in
+  the log, all new staff screens open. Regression m1–m5 green (see status.md).
+- Bugs found by the walkthrough and fixed: portal home never loaded (empty path treated as "no
+  request"); range pickers overflowed a phone screen (now two single date pickers); two children
+  with the same first name looked identical on the switcher.
+- Bugs found by tests and fixed: a wrong OTP try was rolled back with the refusal (5-try limit never
+  held); guardian phones stored with spaces/+91 didn't match; row lock on an outer join (change
+  requests).
+- Not covered here: real SMS/WhatsApp delivery (DLT pending; WhatsApp account not connected) — the
+  adapters are tested against a stubbed HTTP layer; staging runs log-only.

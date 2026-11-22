@@ -1,25 +1,29 @@
 # Handoff
 
-**From:** M5 (2026-11-22) **To:** SDE — M6 (Alerts, Portal, Learning)
+**From:** M6 (2026-11-22) **To:** DevOps + SDE — M7 (Hindi pass, import templates, staging deploy)
 
-- M5 built, verified and pushed. ADR-010 (transport + inventory).
-  - Transport: stops with fares (own or distance slab) → monthly charges in the fees ledger; capacity
-    by date; stop/change from a date; papers with expiry; GPS push `/api/transport/gps/push/`
-    (X-Device-Key) + `simulate_gps`; over-speed / near-stop / paper alerts via `core.notify`
-    (log-only); live map page (Leaflet/OSM); rider list PDF.
-  - Inventory: ledger with weighted average cost; issue/return/damaged/lost; Admin adjustment;
-    requisition approvals by amount (distinct approvers, not the requester); numbered POs + PDF;
-    part/full receipts; direct purchases; reports; hostel mess cost per head.
-- Verification: 182 Django tests; walkthroughs (fresh `seed_demo_tenants` each): m1 14/14,
-  m2-fees 19/19, m2-hostel 12/12, m3 14/14, m3-timetable 10/10, m4 20/20, m5 21/21.
-  Restart `next start` (kill port 3000) after each build.
-- For M6: `apps.core.notify.guardian()` and `staff_role()` are the two call sites every module
-  uses (attendance absent, fees, library, hostel outpass, transport near-stop/over-speed, inventory
-  low stock, transport papers). Replace their log-only body with templates + channels + quiet
-  hours + opt-out + delivery log (ADR-005); keep the signatures.
-- Portal must show: transport route/stop/vehicle/driver + live bus position (`services.live`),
-  fees, attendance, results, timetable, hostel outpass, homework.
-- Client inputs still open: GPS provider + data access; staff → pay rule set / PF vs NPS; DLT date;
-  biometric models.
-- Blocker B2 (VPS + DNS) still open — staging deploy is M7.
+- M6 built, verified and pushed. ADR-011.
+  - Alerts (`apps.notify`): rules, en/hi templates, SMS / WhatsApp / email adapters (+ log-only),
+    quiet hours, opt-out, delivery log with receipts, monthly counts, notices with read status.
+    `core.notify.guardian/staff_role/staff_users` raise real events everywhere.
+  - Learning (`apps.learning`): homework + files + grading, material, online classes (timetable +
+    join record), MCQ tests, class diary, reports; teachers limited to their own sections.
+  - Portal (`apps.portal` + `/portal`): parent OTP login (one login across branches), student
+    logins, child gate (`access.child_for`), 12 phone-first sections, leave + change requests.
+- Verification: see status.md (Django suite, smoke-m6 22/22, m1–m5 green, npm audit 0).
+  Walkthrough needs Django started with `PORTAL_OTP_ECHO=1` and a Celery worker
+  (`celery -A config worker`), fresh `seed_demo_tenants` each run, `next start` restarted per build.
+- For M7 deploy:
+  - Run **Celery worker + beat** (beat: `notify-release-held` every 5 min — also re-queues stuck
+    messages; `notify-daily-reminders` 09:00). Without a worker, alerts stay "queued".
+  - `kombu==5.4.2` is now pinned (5.5+ breaks with redis-py 5.0.8).
+  - Env: `WHATSAPP_APP_SECRET`, `WHATSAPP_VERIFY_TOKEN`, `SMS_DLR_TOKEN`, provider keys named in
+    each channel's "credential env" field; `EMAIL_*`. Never set `PORTAL_OTP_ECHO` in production.
+  - Reverse proxy must **overwrite** `X-Forwarded-For` (GPS/attendance allow-lists).
+  - Retention jobs: VehiclePosition 90 days, PortalOTP 1 day.
+  - Hindi pass: portal strings are inline in `components/portal/*` (t(en, hi)); review with the
+    client's Hindi reviewer along with lib/resources.ts.
+- Client inputs still open: DLT registration + template ids; WhatsApp Business number; GPS
+  provider; staff → pay rule set / PF vs NPS; biometric models.
+- Blocker B2 (VPS + DNS) still open.
 - Commits: author Abhishek Singh, no AI attribution.

@@ -53,3 +53,12 @@ Not served directly; authenticated download views to be added where files are sh
   TransportAssignment(vehicle, end_date), StockMove(branch, kind, at); positions unique per
   vehicle+time. VehiclePosition grows ~2,000 rows/vehicle/day at 10 s — add a 90-day retention job
   in M7.
+- M6: `notify.0001`, `learning.0001`, `portal.0001`. Message unique (branch, channel, to,
+  dedupe_key) where dedupe ≠ "" (one absent alert per student/day); index Message(branch, channel,
+  created_at) for monthly counts. Homework index (section, due_date); one Submission per
+  (homework, student); one Attempt per (test, student); one JoinRecord per (class, student);
+  Question unique (test, sequence); checks: class ends after start, test closes after it opens,
+  leave to ≥ from. PortalOTP is a small rolling table (index phone, created_at) — purge rows older
+  than a day in M7. Guardian phone matching uses `regexp_replace(phone, '\D', '')` + `endswith`;
+  fine at school scale (thousands of guardians); add a digits column + index if it ever shows in
+  slow logs.

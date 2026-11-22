@@ -88,13 +88,82 @@ class Command(BaseCommand):
                 self._hr_payroll(branch)
                 self._transport(branch)
                 self._inventory(branch)
+                self._learning_portal(branch)
 
         self.stdout.write(self.style.SUCCESS(
             "Seeded abc (Basic, 1 branch) and pqr (Premium, branches patna + gaya).\n"
             f"Password for every demo user: {DEMO_PASSWORD}\n"
             "  owner@abc.eraj.test, owner@pqr.eraj.test (Admin + Group admin)\n"
-            "  <role>.<branch>@pqr.eraj.test for librarian/accountant/teacher/warden/hr/transport/store, e.g. librarian.patna@pqr.eraj.test"
+            "  <role>.<branch>@pqr.eraj.test for librarian/accountant/teacher/warden/hr/transport/store, e.g. librarian.patna@pqr.eraj.test\n"
+            "  Portal: parent mobile 9876500001 (Rekha Devi — PATNA-C6-002 day scholar + PATNA-C7-002 hostel);\n"
+            "          student login student.patna@pqr.eraj.test (PATNA-C6-002). With PORTAL_OTP_ECHO=1 the login page shows the code."
         ))
+
+    @staticmethod
+    def _learning_portal(branch):
+        """Homework (one with a PDF), study material, an online class tomorrow, an open 5-question test,
+        a few diary entries and a sent notice for Class 6-A; a demo mother with a day scholar and a hostel
+        child in Patna; a student login for PATNA-C6-002."""
+        from datetime import datetime, time
+        from datetime import timedelta as td
+
+        from django.core.files.base import ContentFile
+
+        from apps.learning.models import DiaryEntry, Homework, HomeworkFile, Material, OnlineClass, OnlineTest, Question
+        from apps.notify.models import Notice
+        from apps.notify.services import send_notice
+        from apps.org.models import Role, RoleAssignment
+        from apps.people.models import AcademicYear, Guardian, Section, Staff, Student, StudentGuardian, Subject
+
+        year = AcademicYear.objects.get(is_current=True)
+        section = Section.objects.filter(branch=branch, academic_year=year, program__code="C6").first()
+        if section is None or Homework.objects.filter(branch=branch).exists():
+            return
+        today = timezone.localdate()
+        now = timezone.now()
+        teacher = Staff.objects.get(branch=branch, employee_code=f"{branch.code.upper()}-T001")
+        maths = Subject.objects.get(branch=branch, code="C6-MAT")
+        pdf = b"%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj 2 0 obj<</Type/Pages/Kids[]/Count 0>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF"
+        hw = Homework.objects.create(branch=branch, section=section, subject=maths, teacher=teacher, title="Fractions — Exercise 4.2",
+                                     description="Do Q1 to Q10 in your notebook and upload a photo.", due_date=today + td(days=2), created_by="seed")
+        f = HomeworkFile(homework=hw, original_name="exercise-4-2.pdf", content_type="application/pdf", size=len(pdf))
+        f.file.save("exercise-4-2.pdf", ContentFile(pdf), save=True)
+        Homework.objects.create(branch=branch, section=section, subject=maths, teacher=teacher, title="Decimals worksheet",
+                                description="Worksheet page 12.", due_date=today - td(days=1), created_by="seed")
+        Material.objects.create(branch=branch, program=section.program, subject=maths, chapter="Fractions", title="Fractions explained (video)",
+                                kind=Material.Kind.VIDEO, link="https://www.youtube.com/watch?v=n0FZhQ_GkKw", teacher=teacher)
+        Material.objects.create(branch=branch, section=section, subject=maths, chapter="Fractions", title="Revision notes",
+                                kind=Material.Kind.NOTE, description="Like fractions: add the numerators, keep the denominator.", teacher=teacher)
+        start = timezone.make_aware(datetime.combine(today + td(days=1), time(16, 0)))
+        OnlineClass.objects.create(branch=branch, section=section, subject=maths, teacher=teacher, title="Doubt-clearing class",
+                                   starts_at=start, ends_at=start + td(minutes=45), link="https://meet.google.com/abc-defg-hij")
+        test = OnlineTest.objects.create(branch=branch, section=section, subject=maths, teacher=teacher, title="Fractions quiz",
+                                         instructions="Choose one answer for each question.", opens_at=now - td(hours=1),
+                                         closes_at=now + td(days=7), time_limit_minutes=15, published=True, show_answers=True)
+        for i, (q, opts, right) in enumerate([("1/2 + 1/2 = ?", ["1/4", "1", "2"], 1), ("3/4 − 1/4 = ?", ["1/2", "1/4", "2/4 is wrong"], 0),
+                                               ("Which is bigger?", ["1/3", "1/2"], 1), ("2/4 is the same as", ["1/2", "1/4", "4/2"], 0),
+                                               ("1/5 + 2/5 = ?", ["3/10", "3/5", "2/5"], 1)], start=1):
+            Question.objects.create(test=test, sequence=i, text=q, options=opts, correct=right)
+        for back, topic in ((3, "Introduction to fractions"), (2, "Like and unlike fractions"), (1, "Adding like fractions")):
+            DiaryEntry.objects.create(branch=branch, section=section, date=today - td(days=back), period=2, subject=maths, teacher=teacher, topic=topic)
+        notice = Notice.objects.create(branch=branch, title="Parent-teacher meeting", body="Saturday 10 am in the school hall. Please bring the report card.",
+                                       audience=Notice.Audience.SECTION, section=section)
+        send_notice(notice=notice, by="seed")
+
+        if branch.code != "patna":
+            return
+        mother = Guardian.objects.create(branch=branch, full_name="Rekha Devi", phone="9876500001")
+        for adm in ("PATNA-C6-002", "PATNA-C7-002"):
+            kid = Student.objects.get(branch=branch, admission_no=adm)
+            StudentGuardian.objects.create(branch=branch, student=kid, guardian=mother, relation="mother", is_primary=False)
+        kid = Student.objects.get(branch=branch, admission_no="PATNA-C6-002")
+        if kid.user_id is None:
+            user, _ = User.objects.get_or_create(email="student.patna@pqr.eraj.test", defaults={"first_name": kid.full_name})
+            user.set_password(DEMO_PASSWORD)
+            user.save()
+            kid.user = user
+            kid.save(update_fields=["user", "updated_at"])
+            RoleAssignment.objects.get_or_create(user=user, role=Role.STUDENT, branch=branch)
 
     @staticmethod
     def _hr_payroll(branch):

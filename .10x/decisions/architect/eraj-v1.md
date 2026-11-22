@@ -75,3 +75,6 @@ AuditLog.
   Question, Attempt, DiaryEntry.
 - Failure modes: provider down (retries + failed with reason; module action unaffected); duplicate
   absent alerts (dedupe key per student/day); OTP brute force (caps); IDOR (single gate).
+- Built as designed (2026-11-22). Additions: the proxy accepts the child's branch per request
+  (header, or `_branch` on plain download links) because one parent login can span branches;
+  portal-only logins are routed to `/portal` from both login pages and the staff shell.
