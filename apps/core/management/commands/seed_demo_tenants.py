@@ -290,7 +290,7 @@ class Command(BaseCommand):
         science, _ = Department.objects.get_or_create(branch=branch, name="Science")
         stat = Vendor.objects.create(branch=branch, name="Patna Stationers", phone="9801200001", gstin="10ABCDE1234F1Z5",
                                      address="Exhibition Road, Patna")
-        lab = Vendor.objects.create(branch=branch, name="Bihar Scientific Co.", phone="9801200002", gstin="10PQRSX5678K1Z2")
+        Vendor.objects.create(branch=branch, name="Bihar Scientific Co.", phone="9801200002", gstin="10PQRSX5678K1Z2")
         grain = Vendor.objects.create(branch=branch, name="Maa Durga Kirana", phone="9801200003")
 
         def item(store, code, name, unit="piece", kind="consumable", reorder=0, category=""):
