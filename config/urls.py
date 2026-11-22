@@ -27,6 +27,9 @@ urlpatterns = [
     path("api/transport/", include("apps.transport.urls")),
     path("api/inventory/", include("apps.inventory.urls")),
     path("api/timetable/", include("apps.timetable.urls")),
+    path("api/notify/", include("apps.notify.urls")),
+    path("api/learning/", include("apps.learning.urls")),
+    path("api/portal/", include("apps.portal.urls")),
     # Attendance devices speaking ZKTeco ADMS (eSSL, Realtime, Identix …) call these fixed paths.
     path("iclock/cdata", adms_cdata),
     path("iclock/getrequest", adms_getrequest),

@@ -304,4 +304,17 @@ def publish(*, exam: Exam, by: str, publish: bool = True) -> Exam:
     exam.published_at = timezone.now() if publish else None
     exam.save(update_fields=["published_at", "updated_at"])
     record("exam.published" if publish else "exam.unpublished", actor=by, exam=exam.pk)
+    if publish:
+        _alert_results(exam)
     return exam
+
+
+def _alert_results(exam: Exam) -> None:
+    from apps.core import notify
+    from apps.people.models import Enrollment, Student
+
+    students = Student.objects.filter(status="active", enrollments__program=exam.program,
+                                      enrollments__academic_year=exam.academic_year,
+                                      enrollments__status=Enrollment.Status.ACTIVE).distinct()
+    for s in students:
+        notify.guardian(s, "exam.results_published", f"Results of {exam.name} are published.", exam=exam.name)

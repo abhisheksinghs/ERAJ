@@ -106,6 +106,8 @@ def mark_section(*, section: Section, on: date, statuses: dict[int, str], absent
     if past and changes and not can_correct_past:
         raise Conflict("Attendance for a past day can only be corrected by Admin.")
 
+    newly_absent = [sid for sid, st in wanted.items() if st == AttendanceRecord.Status.ABSENT
+                    and (sid not in existing or existing[sid].status != st)]
     created = updated = 0
     new_rows = []
     for sid, st in wanted.items():
@@ -124,7 +126,22 @@ def mark_section(*, section: Section, on: date, statuses: dict[int, str], absent
                changes=[{"student": s, "from": a, "to": b} for s, a, b in changes])
     record("attendance.marked", actor=by, section=section.pk, date=str(on), period=period,
            present=sum(1 for v in wanted.values() if v == "present"), total=len(wanted))
+    if on == timezone.localdate() and newly_absent:  # "absent today" alert, once per student per day (ADR-011)
+        _alert_absent([s for s in students if s.pk in newly_absent], on)
     return MarkResult(created=created, updated=updated, unchanged=len(wanted) - created - updated)
+
+
+def _alert_absent(students, on: date) -> None:
+    import logging
+
+    try:
+        from apps.notify.services import absent_today
+
+        for s in students:
+            with transaction.atomic():
+                absent_today(student=s, on=on)
+    except Exception:  # alerts must never undo marking
+        logging.getLogger("eraj.notify").exception("absent alerts failed")
 
 
 def sheet(*, section: Section, on: date, period: int | None = None) -> dict:

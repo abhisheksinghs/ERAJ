@@ -67,6 +67,9 @@ TENANT_APPS = [
     "apps.transport",
     "apps.inventory",
     "apps.timetable",
+    "apps.notify",  # alerts: channels, templates, delivery log, notices (ADR-011)
+    "apps.learning",  # homework, material, online classes, tests, diary (ADR-011)
+    "apps.portal",  # parent/student portal API (ADR-011)
 ]
 
 INSTALLED_APPS = list(SHARED_APPS) + [
@@ -284,6 +287,24 @@ MODULE_PERMISSION_CACHE_TTL = config("MODULE_PERMISSION_CACHE_TTL", default=180,
 # ---------------------------------------------------------------------------
 # Celery
 # ---------------------------------------------------------------------------
+# --- Email (alerts, ADR-011). Dev prints to the console; production sets SMTP via env.
+EMAIL_BACKEND = config("EMAIL_BACKEND", default="django.core.mail.backends.console.EmailBackend")
+EMAIL_HOST = config("EMAIL_HOST", default="")
+EMAIL_PORT = config("EMAIL_PORT", default=587, cast=int)
+EMAIL_HOST_USER = config("EMAIL_HOST_USER", default="")
+EMAIL_HOST_PASSWORD = config("EMAIL_HOST_PASSWORD", default="")
+EMAIL_USE_TLS = config("EMAIL_USE_TLS", default=True, cast=bool)
+DEFAULT_FROM_EMAIL = config("DEFAULT_FROM_EMAIL", default="no-reply@eraj.local")
+
+# `manage.py test` (Django runner) uses these settings, not settings_test: run tasks inline and
+# keep mail in memory so alert tests never need a broker or SMTP.
+import sys as _sys  # noqa: E402
+
+if len(_sys.argv) > 1 and _sys.argv[1] == "test":
+    CELERY_TASK_ALWAYS_EAGER = True
+    CELERY_TASK_EAGER_PROPAGATES = True
+    EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
+
 CELERY_BROKER_URL = config("REDIS_URL", default="redis://127.0.0.1:6379/0")
 CELERY_RESULT_BACKEND = config("REDIS_URL", default="redis://127.0.0.1:6379/0")
 CELERY_TASK_SERIALIZER = "json"

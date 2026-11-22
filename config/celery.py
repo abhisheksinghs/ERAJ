@@ -28,6 +28,15 @@ app.conf.beat_schedule = {
         "task": "apps.core.tasks.recompute_all_subscription_statuses",
         "schedule": crontab(hour=0, minute=5),  # 00:05 IST daily
     },
+    # Alerts (ADR-011): quiet-hours release and daily fee / library reminders.
+    "notify-release-held": {
+        "task": "apps.notify.tasks.release_held_all",
+        "schedule": crontab(minute="*/5"),
+    },
+    "notify-daily-reminders": {
+        "task": "apps.notify.tasks.daily_reminders_all",
+        "schedule": crontab(hour=9, minute=0),  # 09:00 IST, outside quiet hours
+    },
 }
 # NOTE: run exactly ONE beat process (see docs/DEPLOY.md) — two schedulers means
 # every periodic task fires twice.

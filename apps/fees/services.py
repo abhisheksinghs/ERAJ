@@ -304,6 +304,10 @@ def collect(
         [ReceiptLine(receipt=receipt, charge_id=line.charge.pk, amount=money(line.amount)) for line in lines]
     )
     record("fees.collected", actor=received_by, detail={"receipt": number, "student": student.pk, "amount": str(total), "mode": mode})
+    from apps.core import notify
+
+    notify.guardian(student, "fees.payment_received", f"Received Rs {total:,.0f}, receipt {number}.",
+                    amount=f"{total:,.0f}", receipt=number)
     return receipt
 
 
