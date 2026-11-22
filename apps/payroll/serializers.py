@@ -33,10 +33,17 @@ class PayCellSerializer(serializers.ModelSerializer):
 class PayLevelSerializer(BranchScopedSerializer):
     cells = PayCellSerializer(many=True)
     rule_set_name = serializers.CharField(source="rule_set.name", read_only=True)
+    summary = serializers.SerializerMethodField()
 
     class Meta:
         model = PayLevel
-        fields = ("id", "branch", "rule_set", "rule_set_name", "code", "sequence", "cells")
+        fields = ("id", "branch", "rule_set", "rule_set_name", "code", "sequence", "cells", "summary")
+
+    def get_summary(self, obj) -> str:
+        cells = sorted(obj.cells.all(), key=lambda c: c.index)
+        if not cells:
+            return ""
+        return f"₹{cells[0].basic:,.0f} – ₹{cells[-1].basic:,.0f} ({len(cells)} cells)"
 
     def validate_cells(self, cells):
         idx = [c["index"] for c in cells]

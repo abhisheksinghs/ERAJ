@@ -16,6 +16,12 @@ import { tr } from "@/lib/resources";
 
 type Row = Record<string, unknown> & { id: number };
 
+/** Action bodies may carry "{today}" (local date, YYYY-MM-DD), e.g. a relieving date. */
+function fillBody(body?: Record<string, unknown>): Record<string, unknown> {
+  const today = new Date().toLocaleDateString("en-CA");
+  return Object.fromEntries(Object.entries(body ?? {}).map(([k, v]) => [k, v === "{today}" ? today : v]));
+}
+
 export function ResourceList({ def }: { def: ResourceDef }) {
   const { lang, can, allBranches } = useSession();
   const { message } = App.useApp();
@@ -65,7 +71,7 @@ export function ResourceList({ def }: { def: ResourceDef }) {
       await mutateAsync({
         url: `${API}/${def.name}/${row.id}/${action.path ? `${action.path}/` : ""}`,
         method: action.method as "post" | "patch",
-        values: { ...(action.body ?? {}), ...(extra ?? {}) },
+        values: { ...fillBody(action.body), ...(extra ?? {}) },
         successNotification: () => ({ type: "success", message: tr(UI.done, lang) }),
         errorNotification: (err) => ({ type: "error", message: err?.message ?? "Error" }),
       });

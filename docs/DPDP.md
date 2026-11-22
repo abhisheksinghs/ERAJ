@@ -11,6 +11,8 @@ the institution (the DPA).
 | Staff/owner accounts (email, name, password hash, role) | tenant schema `accounts_user` | contact + credential | life of the contract + 30 days |
 | Library members (name, email) | tenant schema `library_member` | contact | per institution instruction; default = life of contract |
 | Hostel residents (name) | tenant schema `hostel_resident` | contact | as above |
+| Staff HR records (profile, PAN, UAN, ESIC IP, PRAN, bank account, documents, attendance, leave) | tenant schema `hr_*`, per-tenant media | identity + financial | life of employment + 8 years (tax/EPF records), per institution instruction |
+| Payroll (salary structures, payslips, loans, statutory files) | tenant schema `payroll_*` | financial | 8 years (Income-tax, EPF, ESI record keeping) |
 | Superadmin accounts | `public.accounts_user` | contact + credential | life of employment |
 | Audit log (actor email, action, tenant) | `public.core_auditlog` | activity | 1 year |
 | Tenant/plan/subscription | `public.core_*` | commercial, minimal PII | life of contract + 7 years (tax) |

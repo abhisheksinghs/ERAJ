@@ -85,19 +85,137 @@ class Command(BaseCommand):
                 self._fees(branch)
                 self._academics(branch)
                 self._timetable(branch)
+                self._hr_payroll(branch)
 
         self.stdout.write(self.style.SUCCESS(
             "Seeded abc (Basic, 1 branch) and pqr (Premium, branches patna + gaya).\n"
             f"Password for every demo user: {DEMO_PASSWORD}\n"
             "  owner@abc.eraj.test, owner@pqr.eraj.test (Admin + Group admin)\n"
-            "  <role>.<branch>@pqr.eraj.test for librarian/accountant/teacher/warden, e.g. librarian.patna@pqr.eraj.test"
+            "  <role>.<branch>@pqr.eraj.test for librarian/accountant/teacher/warden/hr, e.g. librarian.patna@pqr.eraj.test"
         ))
+
+    @staticmethod
+    def _hr_payroll(branch):
+        """Leave types and balances, staff profiles, central + Bihar pay rules
+        (SAMPLE rates, not advice), structures on PF / NPS / ESI, an advance,
+        last month's attendance and payroll locked, this month's in draft."""
+        from datetime import date, timedelta
+        from decimal import Decimal
+
+        from apps.hr import services as hr
+        from apps.hr.models import Designation, LeaveApplication, LeaveType, StaffProfile
+        from apps.payroll import services as pay
+        from apps.payroll.models import (
+            DARate, Loan, PayCell, PayComponent, PayLevel, PayrollRun, PayRuleSet, SalaryStructure, StatutorySettings,
+        )
+        from apps.people.models import Staff
+
+        if PayRuleSet.objects.filter(branch=branch).exists():
+            return
+        today = timezone.localdate()
+        this_month = today.replace(day=1)
+        last_month = (this_month - timedelta(days=1)).replace(day=1)
+        for name in ("Principal", "PGT", "TGT", "Accountant", "Clerk", "Lab assistant"):
+            Designation.objects.get_or_create(branch=branch, name=name)
+        types = {
+            "CL": LeaveType.objects.create(branch=branch, code="CL", name="Casual leave", name_hi="आकस्मिक अवकाश", annual_days=8),
+            "EL": LeaveType.objects.create(branch=branch, code="EL", name="Earned leave", name_hi="अर्जित अवकाश", annual_days=30,
+                                           max_carry_forward=Decimal("300"), allow_half_day=False),
+            "ML": LeaveType.objects.create(branch=branch, code="ML", name="Medical leave", name_hi="चिकित्सा अवकाश", annual_days=10),
+            "LWP": LeaveType.objects.create(branch=branch, code="LWP", name="Leave without pay", name_hi="अवैतनिक अवकाश",
+                                            annual_days=None, paid=False),
+        }
+        StatutorySettings.objects.update_or_create(branch=branch, defaults={
+            "pt_slabs": [{"from": 0, "to": 25000, "amount": 0}, {"from": "25000.01", "to": 41666, "amount": 83},
+                         {"from": "41666.01", "to": 83333, "amount": 167}, {"from": "83333.01", "to": None, "amount": 208}],
+            "tds_slabs": [{"from": 0, "to": 400000, "percent": 0}, {"from": 400000, "to": 800000, "percent": 5},
+                          {"from": 800000, "to": 1200000, "percent": 10}, {"from": 1200000, "to": 1600000, "percent": 15},
+                          {"from": 1600000, "to": 2000000, "percent": 20}, {"from": 2000000, "to": 2400000, "percent": 25},
+                          {"from": 2400000, "to": None, "percent": 30}],
+        })
+        central = PayRuleSet.objects.create(branch=branch, code="central-7cpc", name="Central 7th CPC (sample)",
+                                            hra_x=30, hra_y=20, hra_z=10)
+        bihar = PayRuleSet.objects.create(branch=branch, code="bihar-7cpc", name="Bihar 7th CPC (sample)",
+                                          hra_x=16, hra_y=8, hra_z=8)
+        matrix = {6: [35400, 36500, 37600, 38700, 39900, 41100], 7: [44900, 46200, 47600, 49000, 50500, 52000],
+                  8: [47600, 49000, 50500, 52000, 53600, 55200]}
+        levels = {}
+        for rs in (central, bihar):
+            for code, cells in matrix.items():
+                lvl = PayLevel.objects.create(branch=branch, rule_set=rs, code=str(code), sequence=code)
+                for i, basic in enumerate(cells, start=1):
+                    PayCell.objects.create(branch=branch, level=lvl, index=i, basic=basic)
+                levels[(rs.code, code)] = lvl
+            DARate.objects.create(branch=branch, rule_set=rs, effective_from=date(today.year, 1, 1), percent=50,
+                                  note="Sample rate — enter the government order")
+        PayComponent.objects.create(branch=branch, rule_set=central, code="ta", name="Transport allowance",
+                                    name_hi="परिवहन भत्ता", calc="fixed", value=1800)
+        PayComponent.objects.create(branch=branch, rule_set=bihar, code="ma", name="Medical allowance",
+                                    name_hi="चिकित्सा भत्ता", calc="fixed", value=1000)
+        PayComponent.objects.create(branch=branch, rule_set=bihar, code="gis", name="Group insurance", kind="deduction",
+                                    calc="fixed", value=30, prorate=False)
+
+        from apps.people.models import Department
+
+        dept, _ = Department.objects.get_or_create(branch=branch, name="Office")
+        staff = list(Staff.objects.filter(branch=branch, status=Staff.Status.ACTIVE).order_by("employee_code"))
+        extra = [("A001", "Ramesh Prasad", "Accountant"), ("C001", "Kamla Devi", "Clerk"), ("L001", "Arjun Paswan", "Lab assistant")]
+        for code, name, desig in extra:
+            obj, _ = Staff.objects.get_or_create(
+                branch=branch, employee_code=f"{branch.code.upper()}-{code}",
+                defaults={"full_name": name, "designation": desig, "date_joined": date(today.year - 3, 4, 1),
+                          "department": dept, "employment_type": "contract" if code != "A001" else "permanent"})
+            staff.append(obj)
+        Staff.objects.filter(branch=branch, date_joined__gte=today - timedelta(days=200)).update(date_joined=date(today.year - 4, 4, 1))
+        for n, s in enumerate(staff, start=1):
+            StaffProfile.objects.get_or_create(staff=s, defaults={
+                "branch": branch, "gender": "female" if n % 2 else "male", "pan": f"ABCPK{1000 + n:04d}{'ABCDEFGHJK'[n % 10]}",
+                "uan": f"1001{branch.pk:02d}{n:06d}", "pran": f"1100{branch.pk:02d}{n:06d}", "esic_ip": f"31{branch.pk:02d}{n:06d}",
+                "bank_name": "State Bank of India", "bank_account": f"3{branch.pk:02d}{n:09d}", "ifsc": "SBIN0001234"})
+            if n <= 2:
+                rs, lvl, kw = central, levels[("central-7cpc", 7 if n == 1 else 6)], {"pf": True}
+            elif s.employment_type == "contract":
+                rs, lvl, kw = bihar, None, {"esi": True, "da_applicable": False, "hra_applicable": False}
+            else:
+                rs, lvl, kw = bihar, levels[("bihar-7cpc", 6 + n % 3)], {"nps": True}
+            SalaryStructure.objects.create(branch=branch, staff=s, rule_set=rs, level=lvl, cell_index=(n % 4) + 1 if lvl else None,
+                                           fixed_basic=None if lvl else Decimal(12000 + 500 * n), city_class="Y",
+                                           increment_month=7 if lvl else 0, tds=bool(lvl), **kw)
+        hr.open_year(branch=branch, year=today.year, by="seed")
+        # last month: attendance with a couple of absences, one unpaid day, then payroll locked
+        Loan.objects.create(branch=branch, staff=staff[-1], kind="advance", amount=12000, monthly_recovery=2000,
+                            start_month=last_month, balance=12000, note="Festival advance")
+        d = last_month
+        while d < this_month:
+            try:
+                absent = [staff[1].pk] if d.day in (7, 21) else []
+                hr.mark_day(branch=branch, on=d, absent=absent, by="seed", can_correct_past=True)
+            except Exception:  # holiday / weekly off
+                pass
+            d += timedelta(days=1)
+        working = hr.working_days(branch, last_month, this_month - timedelta(days=1))
+        if len(working) > 12:
+            lwp = hr.apply_leave(staff=staff[2], leave_type=types["LWP"], start=working[10], end=working[10],
+                                 reason="Personal work", by="seed")
+            hr.approve_leave(application=lwp, by="seed")
+        run = pay.create_run(branch=branch, month=last_month, by="seed")
+        pay.submit(run=run, by="seed")
+        pay.lock(run=run, by="seed")
+        # this month: a pending and an approved casual leave, payroll in draft
+        future = hr.working_days(branch, today + timedelta(days=1), today + timedelta(days=20))
+        if len(future) >= 4:
+            ok = hr.apply_leave(staff=staff[0], leave_type=types["CL"], start=future[0], end=future[1], reason="Family function", by="seed")
+            hr.approve_leave(application=ok, by="seed")
+            hr.apply_leave(staff=staff[3 % len(staff)], leave_type=types["CL"], start=future[3], end=future[3], reason="Bank work", by="seed")
+        if not PayrollRun.objects.filter(branch=branch, month=this_month).exists():
+            pay.create_run(branch=branch, month=this_month, by="seed")
+        assert LeaveApplication.objects.filter(branch=branch).exists()
 
     @staticmethod
     def _staff_users(branch):
         from apps.org.models import Role, RoleAssignment
 
-        for role in (Role.LIBRARIAN, Role.ACCOUNTANT, Role.TEACHER, Role.WARDEN):
+        for role in (Role.LIBRARIAN, Role.ACCOUNTANT, Role.TEACHER, Role.WARDEN, Role.HR):
             user, created = User.objects.get_or_create(
                 email=f"{role}.{branch.code}@pqr.eraj.test",
                 defaults={"first_name": role.label, "last_name": branch.name},

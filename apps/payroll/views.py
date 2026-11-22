@@ -75,11 +75,18 @@ class PayComponentViewSet(BranchScopedViewSetMixin, viewsets.ModelViewSet):
     filterset_fields = ["rule_set", "kind"]
 
 
-class StatutorySettingsViewSet(BranchScopedViewSetMixin, mixins.RetrieveModelMixin, mixins.UpdateModelMixin,
-                               viewsets.GenericViewSet):
+class StatutorySettingsViewSet(BranchScopedViewSetMixin, mixins.ListModelMixin, mixins.RetrieveModelMixin,
+                               mixins.UpdateModelMixin, viewsets.GenericViewSet):
     queryset = StatutorySettings.objects.all()
     serializer_class = StatutorySettingsSerializer
     perm_resource = "payroll.settings"
+
+    def list(self, request, *args, **kwargs):
+        from apps.org.scope import resolve_scope
+
+        if resolve_scope(request).active is not None:
+            services.statutory_for(resolve_scope(request).active)  # the branch's one settings row always exists
+        return super().list(request, *args, **kwargs)
 
     @extend_schema(responses=StatutorySettingsSerializer)
     @action(detail=False, methods=["get"])
