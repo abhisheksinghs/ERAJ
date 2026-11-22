@@ -82,3 +82,22 @@ structures; advance; last month's attendance and payroll locked; this month's in
 - Payroll run list shows `month` as a date (01-11-2026), not "Nov 2026".
 - `hr/documents` is a hand-built page (generic form has no file field yet).
 - TDS: new-regime projection only; old-regime staff use the fixed monthly figure.
+
+## M5 Transport + Inventory (done 2026-11-22, ADR-010)
+- `apps.transport` rewritten: routes + ordered stops (times, lat/lng, distance, fare), fare slabs,
+  vehicles (driver/helper, GPS key), papers with expiry, student/staff assignment with capacity by
+  date, monthly transport charges (fees ledger), stop/change from a date, GPS push + simulator +
+  `simulate_gps` command, speed / near-stop / paper alerts (log-only notifier), live/trip data,
+  rider list PDF/Excel, occupancy, expiring papers. `core.notify.staff_role()` added.
+- `apps.inventory` rewritten: stores (mess store linked to a Mess), vendors (GSTIN), items, stock
+  ledger with weighted average cost, opening stock, issue/return/damaged/lost, Admin adjustment,
+  requisitions with approval levels, numbered POs with PDF, part/full goods receipts, direct
+  purchases, reports. Hostel `cost-per-head` endpoint.
+- Frontend: registry entries for both modules; pages /transport/live (Leaflet + OSM),
+  /transport/assign (assign or change), /transport/reports, /inventory/stock, /inventory/receive,
+  /inventory/reports. Create forms can be pre-filled from the URL; action bodies support
+  `{next_month}`; relation selects receive the Form.Item `id`.
+- Deviations: requisitions are raised by the store keeper/Admin for a department (no teacher login
+  for requisitions yet); staff transport is free (no payroll deduction).
+- Tech debt: OSM public tiles (switch to a paid tile provider at scale); daily paper-reminder task
+  not yet on Celery beat (M7 with the other periodic jobs).

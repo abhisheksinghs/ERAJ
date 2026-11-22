@@ -28,3 +28,18 @@ months; one browser walkthrough (`e2e/smoke-m4.mjs`) across HR, accountant, Admi
 
 **Not covered yet:** concurrency test for two approvers on the same balance (guarded by
 `select_for_update`); payslip Hindi rendering (uses the same fonts as receipts, verified in M0).
+
+## M5 Transport + Inventory (2026-11-22)
+- `apps.transport` 11 tests (TR-1…6 + capacity by dates, mid-month stop, change of stop, staff riders,
+  over-speed, key rotation, guards); `apps.inventory` 10 tests (INV-1…5, weighted average, HR-1
+  inventory half, mess cost per head, guards). Full suite in status.md.
+- Browser: smoke-m5 21/21 (live map + trip, assign → fee posted, stop from next month, full vehicle
+  refused, rider list PDF, expiring papers; direct purchase, returnable issue, damaged return in the
+  ledger, store keeper can't adjust, ₹60,000 requisition → accountant + Admin approvals → order →
+  60 % received, PO PDF, Admin adjustment, low stock, mess cost per head). Regression m1–m4 green.
+- Bugs found and fixed: relation selects weren't linked to their form labels (`id` dropped) — now
+  accessible and testable by label; demo transport riders collided with the fees walkthrough's
+  students (seed now leaves them out); OpenAPI name clashes (Issue, Reason).
+- TR-6 "position under a minute old" and the parent alert are proven with the push endpoint and the
+  log-only notifier; a real tracker/provider and real SMS/WhatsApp delivery remain to be tested (GPS
+  provider not yet named; channels in M6).

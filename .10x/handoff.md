@@ -1,22 +1,25 @@
 # Handoff
 
-**From:** M4 (2026-11-22) **To:** SDE — M5 (Transport, Inventory)
+**From:** M5 (2026-11-22) **To:** SDE — M6 (Alerts, Portal, Learning)
 
-- M4 built, verified and pushed. ADR-009 (HR + payroll).
-  - HR: profiles with payroll identity (restricted, masked), designations, documents, one-save staff
-    attendance (+ punches), leave with reserved pending days, approve/reject/cancel, exit, register
-    PDF, reports, self-service `/api/hr/me/*`. `staff_on_leave()` feeds timetable substitution.
-  - Payroll: central + Bihar rule sets (matrix, DA history, HRA X/Y/Z, components), statutory
-    settings (PF/EPS/NPS/ESI/PT/TDS as data), structures, pure `calc.py`, runs draft → review →
-    locked with Admin reversal, increments, DA arrears with markers, loans, one-time payments,
-    payslip PDF, bank sheet, register, ECR, ESIC, PT, 24Q, Form 16, statutory, YTD; own payslips.
-- Verification: 165 Django + 26 pytest; walkthroughs (fresh `seed_demo_tenants` each):
-  smoke-m1 14/14, m2-fees 19/19, m2-hostel 12/12, m3 14/14, m3-timetable 10/10, m4 20/20.
-  Note: `next start` must be restarted (kill port 3000) after each `next build`.
-- Waiting for M5: Inventory issue-to-staff from the shared staff list (HR-1 second half);
-  hostel provisions + cost per head; GPS fake adapter.
-- Client inputs needed (payroll): which staff on central vs Bihar rules; PF vs NPS per staff;
-  actual DA %, HRA %, PT slabs, components; whether arrear PF goes in the month's ECR or a separate
-  arrear ECR. Seeds carry sample values marked "(sample)".
+- M5 built, verified and pushed. ADR-010 (transport + inventory).
+  - Transport: stops with fares (own or distance slab) → monthly charges in the fees ledger; capacity
+    by date; stop/change from a date; papers with expiry; GPS push `/api/transport/gps/push/`
+    (X-Device-Key) + `simulate_gps`; over-speed / near-stop / paper alerts via `core.notify`
+    (log-only); live map page (Leaflet/OSM); rider list PDF.
+  - Inventory: ledger with weighted average cost; issue/return/damaged/lost; Admin adjustment;
+    requisition approvals by amount (distinct approvers, not the requester); numbered POs + PDF;
+    part/full receipts; direct purchases; reports; hostel mess cost per head.
+- Verification: 182 Django tests; walkthroughs (fresh `seed_demo_tenants` each): m1 14/14,
+  m2-fees 19/19, m2-hostel 12/12, m3 14/14, m3-timetable 10/10, m4 20/20, m5 21/21.
+  Restart `next start` (kill port 3000) after each build.
+- For M6: `apps.core.notify.guardian()` and `staff_role()` are the two call sites every module
+  uses (attendance absent, fees, library, hostel outpass, transport near-stop/over-speed, inventory
+  low stock, transport papers). Replace their log-only body with templates + channels + quiet
+  hours + opt-out + delivery log (ADR-005); keep the signatures.
+- Portal must show: transport route/stop/vehicle/driver + live bus position (`services.live`),
+  fees, attendance, results, timetable, hostel outpass, homework.
+- Client inputs still open: GPS provider + data access; staff → pay rule set / PF vs NPS; DLT date;
+  biometric models.
 - Blocker B2 (VPS + DNS) still open — staging deploy is M7.
 - Commits: author Abhishek Singh, no AI attribution.

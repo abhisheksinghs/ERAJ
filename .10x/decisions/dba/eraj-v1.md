@@ -48,3 +48,8 @@ Not served directly; authenticated download views to be added where files are sh
 - Money DecimalField(12,2); percentages DecimalField(6,3); slabs as validated JSON lists.
 - Payslip rows are snapshots — never recomputed after lock; reversal flips status, rows kept.
 - Built as designed. `hr.0001_initial`, `payroll.0001_initial` regenerated; `makemigrations --check` clean.
+- M5: `transport.0001_initial`, `inventory.0001_initial` regenerated (stubs never deployed). Quantities
+  Decimal(12,3) (kg/litre); stock value Decimal(12,2); avg cost Decimal(12,4). Indexes:
+  TransportAssignment(vehicle, end_date), StockMove(branch, kind, at); positions unique per
+  vehicle+time. VehiclePosition grows ~2,000 rows/vehicle/day at 10 s — add a 90-day retention job
+  in M7.
