@@ -44,6 +44,22 @@ def staff_role(branch, role: str, event: str, message: str) -> None:
         log.exception("notify staff failed event=%s role=%s", event, role)
 
 
+def staff_users(users, event: str, message: str, *, branch, **context) -> None:
+    """Alert particular staff logins (e.g. a section's class teacher)."""
+    users = [u for u in users if u is not None]
+    log.info("notify users=%s event=%s: %s", ",".join(u.email for u in users) or "-", event, message)
+    record("notify.staff", event=event, branch=branch.pk, to=[u.email for u in users], message=message)
+    try:
+        from django.db import transaction
+
+        from apps.notify.services import raise_event
+
+        with transaction.atomic():
+            raise_event(branch=branch, event=event, users=users, context={"message": message, **context})
+    except Exception:  # pragma: no cover
+        log.exception("notify users failed event=%s", event)
+
+
 def _phone(student) -> str:
     links = list(student.guardian_links.select_related("guardian").all())
     link = next((g for g in links if g.is_primary), links[0] if links else None)

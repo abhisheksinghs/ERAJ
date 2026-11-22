@@ -86,6 +86,8 @@ def mark_section(*, section: Section, on: date, statuses: dict[int, str], absent
     students = section_students(section)
     ids = {s.pk for s in students}
     wanted = {sid: AttendanceRecord.Status.PRESENT for sid in ids}
+    for sid in _on_leave(ids, on):  # approved day-scholar leave (ADR-011) unless the teacher says otherwise
+        wanted[sid] = AttendanceRecord.Status.LEAVE
     for sid in absent or []:
         wanted[int(sid)] = AttendanceRecord.Status.ABSENT
     for sid, st in (statuses or {}).items():
@@ -144,6 +146,12 @@ def _alert_absent(students, on: date) -> None:
         logging.getLogger("eraj.notify").exception("absent alerts failed")
 
 
+def _on_leave(ids, on: date) -> set[int]:
+    from apps.portal.services import on_leave_ids
+
+    return on_leave_ids(ids, on)
+
+
 def sheet(*, section: Section, on: date, period: int | None = None) -> dict:
     """The teacher's marking sheet: every student with their saved status, or
     a suggestion from today's device punches."""
@@ -153,6 +161,7 @@ def sheet(*, section: Section, on: date, period: int | None = None) -> dict:
         Punch.objects.filter(student__in=students, punched_at__date=on).values_list("student_id", flat=True)
     )
     enr = {e.student_id: e.roll_no for e in Enrollment.objects.filter(section=section, student__in=students)}
+    leave = _on_leave([s.pk for s in students], on)
     return {
         "section": section.pk,
         "section_name": str(section),
@@ -166,6 +175,7 @@ def sheet(*, section: Section, on: date, period: int | None = None) -> dict:
                 "status": saved[s.pk].status if s.pk in saved else None,
                 "source": saved[s.pk].source if s.pk in saved else None,
                 "punched": s.pk in punched,
+                "on_leave": s.pk in leave,
             }
             for s in students
         ],

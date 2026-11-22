@@ -114,6 +114,14 @@ class MessageSerializer(BranchScopedSerializer):
                   "created_at")
         read_only_fields = fields
 
+    def to_representation(self, obj):
+        data = super().to_representation(obj)
+        from apps.notify.services import SECRET_EVENTS, redact
+
+        if obj.event in SECRET_EVENTS:  # still queued: the code is in the row, never on screen
+            data["body"] = redact(data["body"])
+        return data
+
 
 class NoticeSerializer(BranchScopedSerializer):
     read_count = serializers.IntegerField(read_only=True, default=0)

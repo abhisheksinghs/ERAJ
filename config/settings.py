@@ -211,7 +211,8 @@ REST_FRAMEWORK = {
     ),
     "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
     "DEFAULT_THROTTLE_CLASSES": ("rest_framework.throttling.ScopedRateThrottle",),
-    "DEFAULT_THROTTLE_RATES": {"login": config("LOGIN_THROTTLE_RATE", default="5/min")},
+    "DEFAULT_THROTTLE_RATES": {"login": config("LOGIN_THROTTLE_RATE", default="5/min"),
+                               "otp": config("OTP_THROTTLE_RATE", default="10/min")},
     "DEFAULT_PAGINATION_CLASS": "apps.core.pagination.StandardPagination",
     "DEFAULT_RENDERER_CLASSES": (
         "rest_framework.renderers.JSONRenderer",

@@ -177,6 +177,21 @@ def raise_event(*, branch, event: str, context: dict | None = None, student=None
 
 
 # ------------------------------------------------------------------ sending
+SECRET_EVENTS = {"portal.otp"}
+
+
+def redact(text: str) -> str:
+    """Login codes never stay readable in the delivery log."""
+    import re
+
+    return re.sub(r"\d{4,8}", "••••••", text)
+
+
+def _forget_secret(m: Message) -> None:
+    if m.event in SECRET_EVENTS and m.status not in (S.QUEUED, S.HELD):
+        Message.objects.filter(pk=m.pk).update(body=redact(m.body))
+
+
 def send_now(message_id: int) -> Message:
     """Worker side: one attempt. Raises providers.Transient to let Celery retry."""
     with transaction.atomic():
@@ -199,12 +214,15 @@ def send_now(message_id: int) -> Message:
     if res.status in (S.DELIVERED, S.SIMULATED):
         m.delivered_at = now
     m.save(update_fields=["status", "provider_ref", "error", "sent_at", "delivered_at", "updated_at"])
+    _forget_secret(m)
     return m
 
 
 def mark_failed_after_retries(message_id: int, reason: str) -> None:
     Message.objects.filter(pk=message_id, status__in=[S.QUEUED, S.HELD]).update(
         status=S.FAILED, error=f"Gave up after retries: {reason}"[:500], updated_at=timezone.now())
+    for m in Message.objects.filter(pk=message_id, event__in=SECRET_EVENTS):
+        _forget_secret(m)
 
 
 def release_held(now: datetime | None = None) -> int:
