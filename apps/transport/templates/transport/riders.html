@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<style>
+  @page { size: A4; margin: 12mm; @bottom-right { content: "Page " counter(page) " of " counter(pages); font-size: 7pt; color: #5b6475; } }
+  body { font-family: "Noto Sans", "Noto Sans Devanagari", sans-serif; font-size: 9pt; color: #1f2430; }
+  h1 { font-size: 13pt; margin: 0; color: #1e2761; }
+  .route { page-break-after: always; }
+  .route:last-child { page-break-after: auto; }
+  .sub { color: #5b6475; margin: 2pt 0 8pt; }
+  h2 { font-size: 10pt; margin: 10pt 0 3pt; color: #1e2761; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { border: 0.5pt solid #c9cedb; padding: 3pt 5pt; text-align: left; }
+  th { background: #f1f3f8; }
+  td.n { width: 5%; text-align: center; }
+  .foot { margin-top: 8pt; color: #5b6475; font-size: 7.5pt; }
+</style>
+</head>
+<body>
+{% for g in groups %}
+<div class="route">
+  <h1>{{ branch.name }} — Route {{ g.code }}: {{ g.name }}</h1>
+  <div class="sub">Riders on {{ on|date:"d-m-Y" }} · {{ g.count }} rider{{ g.count|pluralize }} · Vehicle {{ g.vehicles|join:", " }}</div>
+  {% for s in g.stops %}
+  <h2>{{ s.no }}. {{ s.name }}{% if s.pickup %} · pickup {{ s.pickup|time:"H:i" }}{% endif %}{% if s.drop %} · drop {{ s.drop|time:"H:i" }}{% endif %}</h2>
+  <table>
+    <tr><th class="n">#</th><th>Name</th><th>Adm. / emp. no.</th><th>Class</th><th>Guardian phone</th></tr>
+    {% for r in s.riders %}<tr><td class="n">{{ forloop.counter }}</td><td>{{ r.rider }}{% if r.type == "staff" %} (staff){% endif %}</td><td>{{ r.id_no }}</td><td>{{ r.class }}</td><td>{{ r.guardian_phone }}</td></tr>{% endfor %}
+  </table>
+  {% endfor %}
+  <div class="foot">Printed {{ printed_at|date:"d-m-Y H:i" }}</div>
+</div>
+{% empty %}
+<p>No riders.</p>
+{% endfor %}
+</body>
+</html>

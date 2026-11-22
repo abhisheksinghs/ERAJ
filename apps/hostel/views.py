@@ -202,6 +202,12 @@ class MessViewSet(BranchScopedViewSetMixin, viewsets.ModelViewSet):
     def contractor_bill(self, request, pk=None):
         return Response(ContractorBillSerializer(mess_services.contractor_bill(self.get_object(), _month(request))).data)
 
+    @extend_schema(responses=OpenApiTypes.OBJECT)
+    @action(detail=True, methods=["get"], url_path="cost-per-head")
+    def cost_per_head(self, request, pk=None):
+        """Provisions + contractor cost per member-day for `?month=YYYY-MM` (ADR-010)."""
+        return Response(mess_services.cost_per_head(self.get_object(), _month(request)))
+
     @extend_schema(responses={(200, "application/pdf"): OpenApiTypes.BINARY})
     @action(detail=True, methods=["get"], url_path="menu-pdf")
     def menu_pdf(self, request, pk=None):

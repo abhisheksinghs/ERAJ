@@ -268,3 +268,31 @@ def contractor_bill(mess: Mess, month: date) -> dict:
                      "amount": amount, "estimated_days": estimated_days})
     return {"mess": mess.pk, "mess_name": mess.name, "contractor": mess.contractor_name, "month": m0,
             "rows": rows, "total": total}
+
+
+# ------------------------------------------------------------------ cost per head (ADR-010)
+def cost_per_head(mess: Mess, month: date) -> dict:
+    """Provisions issued from the mess's store in the month ÷ member-days present
+    (enrolled members not on leave), plus the contractor's bill per member-day."""
+    from apps.core.licensing import tenant_has_module
+
+    m0, m1 = month_start(month), month_end(month)
+    members = list(MessMember.objects.filter(mess=mess, start_date__lte=m1).filter(Q(end_date__isnull=True) | Q(end_date__gte=m0)))
+    leaves = defaultdict(list)
+    for lv in MessLeave.objects.filter(member__in=members, from_date__lte=m1, to_date__gte=m0):
+        leaves[lv.member_id].append((lv.from_date, lv.to_date))
+    member_days = 0
+    for d in days(m0, m1):
+        for mem in members:
+            if mem.start_date <= d and (mem.end_date is None or mem.end_date >= d) and not any(f <= d <= t for f, t in leaves[mem.pk]):
+                member_days += 1
+    provisions = Decimal("0")
+    if tenant_has_module("inventory"):
+        from apps.inventory.services import mess_consumption_value
+
+        provisions = mess_consumption_value(mess=mess, start=m0, end=m1)
+    contractor = contractor_bill(mess, month)["total"]
+    per = (lambda v: (v / member_days).quantize(Decimal("0.01")) if member_days else Decimal("0"))
+    return {"mess": mess.pk, "mess_name": mess.name, "month": m0, "member_days": member_days,
+            "provisions_value": provisions, "contractor_bill": contractor, "provisions_per_head_day": per(provisions),
+            "contractor_per_head_day": per(contractor), "total_per_head_day": per(provisions + contractor)}

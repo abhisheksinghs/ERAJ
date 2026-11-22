@@ -42,6 +42,8 @@ PERMISSIONS: dict[str, list[str]] = {
         *STAFF_SELF,
         "hostel.mess*.view",
         "transport.*.view",
+        "inventory.*.view",
+        "inventory.requisition.approve",
         "reports.*",
     ],
     Role.TEACHER: [
